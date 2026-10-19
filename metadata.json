@@ -1,0 +1,6 @@
+{
+  "name": "Purdue Pegboard & ERS Assessment System",
+  "description": "수원시장애인종합복지관 능력개발지원팀 직업적응훈련반 훈련생 개별파일, 개별화서비스계획서(IWP), 직종훈련 중간평가표(전공과목별 실기 루브릭 및 공통 합창), 상·하반기 훈련비교분석평가표, 신규 훈련생 상황평가일지 & 종합평가기록부, 퍼듀펙보드(Purdue Pegboard) 및 ERS 평가 분석 및 보고서 시스템",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply antialiased text-slate-800 bg-slate-50;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Print Overrides to ensure spotless PDF and A4 worksheets */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Hide standard non-report components during print */
+  header, 
+  aside, 
+  nav, 
+  button,
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  /* Ensure report stretches to full paper width and breaks gracefully */
+  #purdue-official-printable-sheet, 
+  #ers-official-printable-sheet {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Set page configuration for A4 clean layout without headers/footers */
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+}
+
+/* Custom fine-scrollbar for modern dashboard aesthetics */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
