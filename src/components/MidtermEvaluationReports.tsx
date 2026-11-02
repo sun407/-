@@ -357,7 +357,7 @@ export default function MidtermEvaluationReports({
             type="button"
             onClick={handleSyncAllTraineeSubjects}
             className="text-xs font-extrabold px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
-            title="훈련생의 전공과목 및 필수 공통과목(합창)에 맞춰 1번 성적표 및 2·3번 세부 루브릭 평가표들을 일괄 자동 동기화합니다."
+            title="훈련생의 전공과목 및 필수 공통과목(합창)에 맞춰 1번 평가표 및 2·3번 세부 루브릭 평가표들을 일괄 자동 동기화합니다."
           >
             <RefreshCw className="h-3.5 w-3.5" />
             훈련생 과목 전체 자동 맞춤
@@ -366,7 +366,7 @@ export default function MidtermEvaluationReports({
       </div>
 
       {/* =========================================================================
-          PAGE 1: 직종훈련 프로그램 평가 성적표 (전공과목 + 필수 공통교육 합창)
+          PAGE 1: 직종훈련 프로그램 평가표 (전공과목 + 필수 공통교육 합창)
          ========================================================================= */}
       <div className="bg-white border-2 border-slate-900 p-6 md:p-8 rounded-none shadow-xs text-slate-950 font-sans print:shadow-none print:border-2 print:p-6 print:break-after-page">
         
@@ -374,11 +374,8 @@ export default function MidtermEvaluationReports({
         <div className="flex justify-between items-start mb-6">
           <div className="flex-1 text-center pl-24">
             <h1 className="text-xl md:text-2xl font-black tracking-widest text-slate-950 pb-1">
-              {semesterType === 'second' ? '직종훈련 프로그램 하반기 기말평가 성적표' : '직종훈련 프로그램 상반기 중간평가 성적표'}
+              {semesterType === 'second' ? '직종훈련 프로그램 하반기 기말평가표' : '직종훈련 프로그램 상반기 중간평가표'}
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              ( {evaluationYear}년도 {semesterType === 'second' ? '하반기(7~12월) 기말 직무능력 및 종합수행평가 결과표' : '상반기(1~6월) 중간 직무능력 및 수행평가 결과표'} - 직종과목 및 필수 공통 합창 )
-            </p>
           </div>
 
           {/* 결재란 (담당 / 팀장) */}
@@ -436,13 +433,13 @@ export default function MidtermEvaluationReports({
           </div>
         </div>
 
-        {/* 2. 전공훈련별 성적 */}
+        {/* 2. 전공훈련별 평가결과 */}
         <div className="mb-6 space-y-2">
           <div className="flex flex-wrap justify-between items-center gap-2">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-black text-slate-950 flex items-center gap-1.5">
                 <span className="w-2 h-2 bg-slate-900 inline-block"></span>
-                2. 전공훈련별 성적
+                2. 전공훈련별 평가결과
               </h2>
               <span className="text-[11px] text-slate-500 font-medium hidden sm:inline-block">
                 (직종과목 {midtermJobReport.rows.filter(r => !r.subjectName.includes('공통') && !r.taskName.includes('합창')).map(r => r.subjectName).join(', ')} + 필수 공통교육 합창)
@@ -606,7 +603,7 @@ export default function MidtermEvaluationReports({
                 onClick={handleGenerateJobAi}
                 disabled={isGeneratingJobAi}
                 className="px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
-                title="직종훈련 성적과 공통과목(합창) 점수를 분석하여 Gemini AI로 담당자 종합의견을 자동 작성합니다."
+                title="직종훈련 평가결과와 공통과목(합창) 점수를 분석하여 Gemini AI로 담당자 종합의견을 자동 작성합니다."
               >
                 {isGeneratingJobAi ? (
                   <>

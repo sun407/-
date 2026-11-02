@@ -82,7 +82,7 @@ export function generateAiCounselingNotes(data: ClientIntakeRecord, client: Clie
 
 4. 희망 프로그램 및 종합의견
 - 희망 프로그램: ${programStr}.
-- 종합소견: 상기 훈련생은 직업적응훈련반 참여 의지가 높으며, ${programStr} 활동을 통한 직업적응 및 사회적 자립 능력 향상이 기대됨. 상황평가(2주) 진행 후 개별화 직업재활계획(IWP)을 수립하여 구체적 훈련을 제공하는 것이 적절함.`;
+- 종합소견: 상기 훈련생은 직업적응훈련반 참여 의지가 높으며, ${programStr} 활동을 통한 직업적응 및 사회적 자립 능력 향상이 기대됨. 상황평가(2주) 진행 후 개별화 직업재활계획(IPE)을 수립하여 구체적 훈련을 제공하는 것이 적절함.`;
 }
 
 export function getDefaultIntakeRecord(client: Client): ClientIntakeRecord {

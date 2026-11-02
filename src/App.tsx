@@ -301,7 +301,7 @@ export default function App() {
             }`}
           >
             <FileSpreadsheet className="h-3.5 w-3.5" />
-            신규 훈련생 상황/종합평가
+            신규 훈련생 상황평가
           </button>
 
           <button

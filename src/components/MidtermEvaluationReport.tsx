@@ -236,7 +236,7 @@ export default function MidtermEvaluationReport({
             </div>
             <div>
               <div className="text-xs font-black text-blue-950">
-                중간평가 완료 후 2차 개별화재활계획서(IWP) 재수립 연계
+                중간평가 완료 후 2차 개별화재활계획서(IPE) 재수립 연계
               </div>
               <div className="text-[11px] text-blue-700">
                 상반기 중간평가 결과가 2차 계획서의 비교분석 및 하반기 목표에 반영됩니다.
@@ -247,7 +247,7 @@ export default function MidtermEvaluationReport({
             onClick={navigateTo2nd}
             className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl transition-all shadow-sm flex items-center gap-1"
           >
-            2차 개별화재활계획서로 이동
+            2차 개별화재활계획서(IPE)로 이동
             <TrendingUp className="h-3.5 w-3.5" />
           </button>
         </div>

@@ -143,7 +143,7 @@ export function generateAiSituationSpecialNotes(
 - ${attitudeSummary}
 
 4. 향후 훈련 제언
-- ${clientName} 훈련생은 직업적응훈련반 훈련 참여 욕구와 직무 적응 잠재력이 확인됨. 상황평가 관찰 결과를 바탕으로 개별화 직업재활계획(IWP)을 수립하고, 흥미와 강점이 확인된 훈련과정을 중심으로 체계적인 직무 역량 강화 훈련을 지속하는 것이 적절함.`;
+- ${clientName} 훈련생은 직업적응훈련반 훈련 참여 욕구와 직무 적응 잠재력이 확인됨. 상황평가 관찰 결과를 바탕으로 개별화 직업재활계획(IPE)을 수립하고, 흥미와 강점이 확인된 훈련과정을 중심으로 체계적인 직무 역량 강화 훈련을 지속하는 것이 적절함.`;
 }
 
 export default function SituationEvaluationManager({

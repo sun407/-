@@ -11,9 +11,10 @@ import {
   ALL_TRAINING_SUBJECTS,
   validateSubjectSelection,
 } from '../data/evaluationConstants';
-import { Activity, ClipboardCheck, Calendar, FileText, Plus, Trash2, Edit2, User, Eye, ArrowRight, Save, Award, TrendingUp, Sparkles, Printer, FilePlus, CheckSquare, BookOpen, Tablet, UploadCloud, FileSpreadsheet, FolderCheck, Clock, PlusCircle } from 'lucide-react';
+import { Activity, ClipboardCheck, Calendar, FileText, Plus, Trash2, Edit2, User, Eye, ArrowRight, Save, Award, TrendingUp, Sparkles, Printer, FilePlus, CheckSquare, BookOpen, Tablet, UploadCloud, FileSpreadsheet, FolderCheck, Clock, PlusCircle, PenTool } from 'lucide-react';
 import IntakeForm, { getDefaultIntakeRecord } from './IntakeForm';
 import IntakeReport from './IntakeReport';
+import JobSeekingDocumentView from './JobSeekingDocumentView';
 import PictureInterestModal from './PictureInterestModal';
 import IWPPlanForm from './IWPPlanForm';
 import IWPPlanReport from './IWPPlanReport';
@@ -86,6 +87,7 @@ export default function ClientWorkspace({
     | 'situation_eval'
     | 'intake'
     | 'intake_edit'
+    | 'job_seeking'
     | 'purdue'
     | 'ers'
     | 'picture_interest'
@@ -96,7 +98,8 @@ export default function ClientWorkspace({
     | 'iwp_edit'
     | 'iwp_view'
     | 'semester_eval'
-  >('situation_eval');
+  >('intake');
+  const [intakeSubTab, setIntakeSubTab] = useState<'intake_report' | 'job_seeking'>('intake_report');
   const [isPictureInterestModalOpen, setIsPictureInterestModalOpen] = useState(false);
   const [selectedPdfIdForModal, setSelectedPdfIdForModal] = useState<string | null>(null);
   const [modalInitialShowUpload, setModalInitialShowUpload] = useState<boolean>(false);
@@ -868,7 +871,19 @@ export default function ClientWorkspace({
 
           {/* Quick Launcher Buttons in requested order */}
           <div className="grid grid-cols-3 gap-2 mt-4">
-            {/* 상황/종합평가 */}
+            {/* 초기면접 */}
+            <button
+              id="launcher-intake-file-btn"
+              onClick={() => setActiveTab('intake')}
+              className={`py-2 px-1.5 rounded-xl font-bold text-[11px] transition-all shadow-sm flex flex-col items-center justify-center gap-1 ${
+                activeTab === 'intake' || activeTab === 'intake_edit' ? 'bg-white text-indigo-900 ring-2 ring-indigo-300' : 'bg-white/90 hover:bg-white text-indigo-900'
+              }`}
+            >
+              <FileText className="h-4 w-4 text-indigo-600" />
+              <span>초기면접</span>
+            </button>
+
+            {/* 상황평가 */}
             <button
               id="launcher-situation-eval-btn"
               onClick={() => setActiveTab('situation_eval')}
@@ -888,19 +903,7 @@ export default function ClientWorkspace({
                   <span className="text-[9px] px-1 py-0.2 bg-amber-200/80 text-amber-800 rounded font-bold">선택</span>
                 )}
               </div>
-              <span>상황/종합평가</span>
-            </button>
-
-            {/* 개별파일 */}
-            <button
-              id="launcher-intake-file-btn"
-              onClick={() => setActiveTab('intake')}
-              className={`py-2 px-1.5 rounded-xl font-bold text-[11px] transition-all shadow-sm flex flex-col items-center justify-center gap-1 ${
-                activeTab === 'intake' || activeTab === 'intake_edit' ? 'bg-white text-indigo-900 ring-2 ring-indigo-300' : 'bg-white/90 hover:bg-white text-indigo-900'
-              }`}
-            >
-              <FileText className="h-4 w-4 text-indigo-600" />
-              <span>개별파일</span>
+              <span>상황평가</span>
             </button>
 
             {/* 퍼듀펙검사 */}
@@ -965,7 +968,7 @@ export default function ClientWorkspace({
               }`}
             >
               <FolderCheck className="h-4 w-4 text-white" />
-              <span>1차 IWP계획서</span>
+              <span>1차 IPE계획서</span>
             </button>
 
             {/* 중간평가서 */}
@@ -989,7 +992,7 @@ export default function ClientWorkspace({
               }`}
             >
               <TrendingUp className="h-4 w-4 text-white" />
-              <span>2차 IWP계획서</span>
+              <span>2차 IPE계획서</span>
             </button>
           </div>
         </section>
@@ -1001,7 +1004,24 @@ export default function ClientWorkspace({
         >
           {/* Main Tab Switcher inside workspace without numeric prefix */}
           <div id="test-category-tabs" className="border-b border-slate-200 flex flex-wrap gap-1.5 md:gap-2 pb-1.5 overflow-x-auto">
-            {/* 상황/종합평가 */}
+            {/* 초기면접 */}
+            <button
+              id="tab-switcher-intake"
+              onClick={() => setActiveTab('intake')}
+              className={`pb-2 font-bold text-xs tracking-tight border-b-2 transition-all flex items-center gap-1.5 px-2.5 py-1 rounded-t-lg ${
+                activeTab === 'intake' || activeTab === 'intake_edit' || activeTab === 'job_seeking'
+                  ? 'border-indigo-600 text-indigo-700 bg-indigo-50 font-black'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <FileText className="h-3.5 w-3.5 text-indigo-600" />
+              <span>초기면접</span>
+              {client.jobSeekingDoc?.applicantSignerCanvas && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" title="동의서 서명 완료" />
+              )}
+            </button>
+
+            {/* 상황평가 */}
             <button
               id="tab-switcher-situation-eval"
               onClick={() => setActiveTab('situation_eval')}
@@ -1012,7 +1032,7 @@ export default function ClientWorkspace({
               }`}
             >
               <CheckSquare className="h-3.5 w-3.5 text-amber-600" />
-              <span>상황/종합평가</span>
+              <span>상황평가</span>
               <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold ${
                 client.userType === '신규'
                   ? 'bg-amber-100 text-amber-800 border border-amber-300'
@@ -1020,20 +1040,6 @@ export default function ClientWorkspace({
               }`}>
                 {client.userType === '신규' ? '신규필수' : '기존선택'}
               </span>
-            </button>
-
-            {/* 개별파일 */}
-            <button
-              id="tab-switcher-intake"
-              onClick={() => setActiveTab('intake')}
-              className={`pb-2 font-bold text-xs tracking-tight border-b-2 transition-all flex items-center gap-1 px-2.5 py-1 rounded-t-lg ${
-                activeTab === 'intake' || activeTab === 'intake_edit'
-                  ? 'border-indigo-600 text-indigo-700 bg-indigo-50 font-black'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <FileText className="h-3.5 w-3.5 text-indigo-600" />
-              개별파일
             </button>
 
             {/* 퍼듀펙검사 */}
@@ -1103,7 +1109,7 @@ export default function ClientWorkspace({
               }`}
             >
               <FolderCheck className="h-3.5 w-3.5 text-indigo-600" />
-              1차 개별화재활계획서
+              1차 개별화재활계획서(IPE)
             </button>
 
             {/* 중간평가서 */}
@@ -1131,7 +1137,7 @@ export default function ClientWorkspace({
               }`}
             >
               <TrendingUp className="h-3.5 w-3.5 text-purple-600" />
-              2차 개별화재활계획서
+              2차 개별화재활계획서(IPE)
             </button>
           </div>
 
@@ -1146,11 +1152,11 @@ export default function ClientWorkspace({
                         기존 이용 훈련생
                       </span>
                       <h4 className="text-xs font-black text-blue-950">
-                        초기 2주 상황/종합평가 생략 가능 안내
+                        초기 2주 상황평가 생략 가능 안내
                       </h4>
                     </div>
                     <p className="text-xs text-blue-800 leading-relaxed">
-                      {client.name} 훈련생은 <strong>기존 계속 이용 대상자</strong>입니다. 신규 입소 절차인 2주 상황평가일지 및 직업평가종합평가서 작성은 생략하시고 바로 <strong>[개별파일]</strong>, <strong>[3대 기초검사]</strong>, <strong>[1차 개별화재활계획서]</strong>를 진행하셔도 무방합니다. (필요 시 아래에서 자유롭게 작성도 가능합니다.)
+                      {client.name} 훈련생은 <strong>기존 계속 이용 대상자</strong>입니다. 신규 입소 절차인 2주 상황평가일지 및 직업평가종합평가서 작성은 생략하시고 바로 <strong>[초기면접]</strong>, <strong>[3대 기초검사]</strong>, <strong>[1차 개별화재활계획서(IPE)]</strong>를 진행하셔도 무방합니다. (필요 시 아래에서 자유롭게 작성도 가능합니다.)
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -1158,7 +1164,7 @@ export default function ClientWorkspace({
                       onClick={() => setActiveTab('intake')}
                       className="px-3 py-1.5 bg-white hover:bg-blue-100 text-blue-700 border border-blue-300 rounded-xl text-xs font-bold transition-all shadow-xs"
                     >
-                      개별파일 바로가기 →
+                      초기면접 바로가기 →
                     </button>
                     <button
                       onClick={() => setActiveTab('iwp_1st')}
@@ -1183,7 +1189,7 @@ export default function ClientWorkspace({
                       </h4>
                     </div>
                     <p className="text-xs text-amber-800 leading-relaxed">
-                      {client.name} 훈련생의 입소 초기 2주간 직무/태도 상황평가(10일분) 및 직업평가 종합평가서를 기록하여 개별화재활계획서(IWP) 수립의 기초 자료로 활용합니다.
+                      {client.name} 훈련생의 입소 초기 2주간 직무/태도 상황평가(10일분) 및 직업평가 종합평가서를 기록하여 개별화재활계획서(IPE) 수립의 기초 자료로 활용합니다.
                     </p>
                   </div>
                 </div>
@@ -1281,14 +1287,14 @@ export default function ClientWorkspace({
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-400/20 text-indigo-200 border border-indigo-300/30">
-                                  1차 개별화재활계획서 (연초 수립)
+                                  1차 개별화재활계획서(IPE) (연초 수립)
                                 </span>
                                 <span className="text-xs font-bold text-slate-300">
                                   {client.trainingClass || '문화예술반'}
                                 </span>
                               </div>
                               <h3 className="text-lg font-black text-white mt-1">
-                                {client.name} 훈련생 1차 개별화재활계획(IWP)
+                                {client.name} 훈련생 1차 개별화재활계획(IPE)
                               </h3>
                             </div>
                           </div>
@@ -1428,7 +1434,7 @@ export default function ClientWorkspace({
                           <div className="text-[11px] text-indigo-200 font-medium flex items-center gap-1.5">
                             <Sparkles className="h-4 w-4 text-amber-300 shrink-0" />
                             {isAllTestsCompleted 
-                              ? '사전 3대 검사가 모두 준비되었습니다. 검사결과를 자동 반영하여 1차 개별화재활계획서를 작성할 수 있습니다.'
+                              ? '사전 3대 검사가 모두 준비되었습니다. 검사결과를 자동 반영하여 1차 개별화재활계획서(IPE)를 작성할 수 있습니다.'
                               : '사전 검사가 미완료된 항목이 있더라도 기존 입력 데이터를 기반으로 작성이 가능합니다.'}
                           </div>
 
@@ -1451,7 +1457,7 @@ export default function ClientWorkspace({
                               className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 ring-2 ring-indigo-300/40"
                             >
                               <Sparkles className="h-4 w-4 text-amber-300" />
-                              1차 개별화재활계획서 작성
+                              1차 개별화재활계획서(IPE) 작성
                             </button>
                           </div>
                         </div>
@@ -1465,7 +1471,7 @@ export default function ClientWorkspace({
                           <div className="flex items-center gap-2">
                             <FolderCheck className="h-4 w-4 text-indigo-600" />
                             <span className="text-xs font-black text-slate-800">
-                              보관된 1차 개별화재활계획서 이력 ({clientPlans1st.length}건)
+                              보관된 1차 개별화재활계획서(IPE) 이력 ({clientPlans1st.length}건)
                             </span>
                           </div>
                           <button
@@ -1492,7 +1498,7 @@ export default function ClientWorkspace({
                                   <div>
                                     <div className="flex items-center gap-2">
                                       <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                        1차 계획서 (연초 수립)
+                                        1차 IPE계획서 (연초 수립)
                                       </span>
                                       <span className="text-xs font-black text-slate-800">{plan.name} 훈련생</span>
                                     </div>
@@ -1500,7 +1506,7 @@ export default function ClientWorkspace({
                                   </div>
                                   <button
                                     onClick={() => {
-                                      if (confirm('이 1차 개별화재활계획서를 삭제하시겠습니까?')) {
+                                      if (confirm('이 1차 개별화재활계획서(IPE)를 삭제하시겠습니까?')) {
                                         if (onDeleteIWPPlan) onDeleteIWPPlan(plan.id);
                                       }
                                     }}
@@ -1604,14 +1610,14 @@ export default function ClientWorkspace({
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-purple-400/20 text-purple-200 border border-purple-300/30">
-                                  2차 개별화재활계획서 (중간평가 연계)
+                                  2차 개별화재활계획서(IPE) (중간평가 연계)
                                 </span>
                                 <span className="text-xs font-bold text-slate-300">
                                   {client.trainingClass || '문화예술반'}
                                 </span>
                               </div>
                               <h3 className="text-lg font-black text-white mt-1">
-                                {client.name} 훈련생 2차 개별화재활계획(IWP) 재수립
+                                {client.name} 훈련생 2차 개별화재활계획(IPE) 재수립
                               </h3>
                             </div>
                           </div>
@@ -1651,7 +1657,7 @@ export default function ClientWorkspace({
                         <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-white/15">
                           <div className="text-[11px] text-purple-200 font-medium flex items-center gap-1.5">
                             <Sparkles className="h-4 w-4 text-amber-300 shrink-0" />
-                            상·하반기 비교 분석 데이터가 포함된 2차 개별화재활계획서를 수립합니다.
+                            상·하반기 비교 분석 데이터가 포함된 2차 개별화재활계획서(IPE)를 수립합니다.
                           </div>
 
                           <div className="flex items-center gap-2">
@@ -1673,7 +1679,7 @@ export default function ClientWorkspace({
                               className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 ring-2 ring-purple-300/40"
                             >
                               <Sparkles className="h-4 w-4 text-amber-300" />
-                              2차 개별화재활계획서 작성
+                              2차 개별화재활계획서(IPE) 작성
                             </button>
                           </div>
                         </div>
@@ -1687,7 +1693,7 @@ export default function ClientWorkspace({
                           <div className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-purple-600" />
                             <span className="text-xs font-black text-slate-800">
-                              보관된 2차 개별화재활계획서 이력 ({clientPlans2nd.length}건)
+                              보관된 2차 개별화재활계획서(IPE) 이력 ({clientPlans2nd.length}건)
                             </span>
                           </div>
                           <button
@@ -1714,7 +1720,7 @@ export default function ClientWorkspace({
                                   <div>
                                     <div className="flex items-center gap-2">
                                       <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-100">
-                                        2차 계획서 (하반기 연계)
+                                        2차 IPE계획서 (하반기 연계)
                                       </span>
                                       <span className="text-xs font-black text-slate-800">{plan.name} 훈련생</span>
                                     </div>
@@ -1722,7 +1728,7 @@ export default function ClientWorkspace({
                                   </div>
                                   <button
                                     onClick={() => {
-                                      if (confirm('이 2차 개별화재활계획서를 삭제하시겠습니까?')) {
+                                      if (confirm('이 2차 개별화재활계획서(IPE)를 삭제하시겠습니까?')) {
                                         if (onDeleteIWPPlan) onDeleteIWPPlan(plan.id);
                                       }
                                     }}
@@ -1803,33 +1809,105 @@ export default function ClientWorkspace({
             />
           )}
 
-          {activeTab === 'intake' && (
-            client.intakeRecord ? (
-              <IntakeReport
-                client={client}
-                record={client.intakeRecord}
-                onEdit={() => setActiveTab('intake_edit')}
-                onBack={() => setActiveTab('purdue')}
-                onOpenPictureInterestModal={() => setIsPictureInterestModalOpen(true)}
-              />
-            ) : (
-              <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-8 text-center space-y-3">
-                <FileText className="h-10 w-10 mx-auto text-indigo-400" />
-                <div>
-                  <h4 className="font-extrabold text-sm text-slate-800">아직 입력된 훈련생 개별파일이 없습니다</h4>
-                  <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                    수원시장애인종합복지관 양식에 맞춰 접수상담기록지 및 사회평가지를 6단계로 나누어 편리하게 입력하실 수 있습니다.
-                  </p>
+          {(activeTab === 'intake' || activeTab === 'job_seeking') && (
+            <div className="space-y-4">
+              {/* 초기면접 서식 서브 탭 네비게이션 */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs print:hidden">
+                <div className="flex items-center gap-1.5 p-1 bg-slate-150/80 rounded-xl">
+                  <button
+                    onClick={() => {
+                      setIntakeSubTab('intake_report');
+                      if (activeTab === 'job_seeking') setActiveTab('intake');
+                    }}
+                    className={`py-1.5 px-3.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      (activeTab === 'intake' && intakeSubTab === 'intake_report')
+                        ? 'bg-white text-indigo-700 shadow-xs font-black'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>1. 접수상담기록지 및 사회평가지</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIntakeSubTab('job_seeking');
+                      if (activeTab === 'job_seeking') setActiveTab('intake');
+                    }}
+                    className={`py-1.5 px-3.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      activeTab === 'job_seeking' || (activeTab === 'intake' && intakeSubTab === 'job_seeking')
+                        ? 'bg-white text-indigo-700 shadow-xs font-black'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <PenTool className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>2. 구직상담기록지 &amp; 개인정보동의서 (A4 2매 서식/서명)</span>
+                    {client.jobSeekingDoc?.applicantSignerCanvas && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block ml-0.5" title="태블릿 서명 완료" />
+                    )}
+                  </button>
                 </div>
-                <button
-                  onClick={() => setActiveTab('intake_edit')}
-                  className="py-2 px-5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-md inline-flex items-center gap-1.5"
-                >
-                  <Plus className="h-3.5 w-3.5 stroke-[3]" />
-                  훈련생 개별파일 양식 작성하기
-                </button>
+
+                <div className="text-[11px] text-slate-500 hidden sm:flex items-center gap-1 font-medium pr-2">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                  접수상담기록지 데이터 자동 연동 &amp; 태블릿 전자서명
+                </div>
               </div>
-            )
+
+              {/* Subtab 1: 구직상담기록지 & 개인정보수집이용동의서 */}
+              {(activeTab === 'job_seeking' || intakeSubTab === 'job_seeking') ? (
+                <JobSeekingDocumentView
+                  client={client}
+                  onSaveDoc={(updatedDoc) => {
+                    onUpdateClient({
+                      ...client,
+                      jobSeekingDoc: updatedDoc,
+                    });
+                  }}
+                  onBackToIntakeReport={() => {
+                    setIntakeSubTab('intake_report');
+                    if (activeTab === 'job_seeking') setActiveTab('intake');
+                  }}
+                />
+              ) : (
+                /* Subtab 0: 기본 접수상담기록지 및 사회평가지 */
+                client.intakeRecord ? (
+                  <IntakeReport
+                    client={client}
+                    record={client.intakeRecord}
+                    onEdit={() => setActiveTab('intake_edit')}
+                    onBack={() => setActiveTab('purdue')}
+                    onOpenPictureInterestModal={() => setIsPictureInterestModalOpen(true)}
+                    onOpenJobSeeking={() => setIntakeSubTab('job_seeking')}
+                  />
+                ) : (
+                  <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-8 text-center space-y-4">
+                    <FileText className="h-10 w-10 mx-auto text-indigo-400" />
+                    <div>
+                      <h4 className="font-extrabold text-sm text-slate-800">아직 입력된 훈련생 개별파일이 없습니다</h4>
+                      <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                        수원시장애인종합복지관 양식에 맞춰 접수상담기록지 및 사회평가지 또는 신규 구직상담기록지(2매 양식)를 작성하실 수 있습니다.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        onClick={() => setActiveTab('intake_edit')}
+                        className="py-2 px-5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-md inline-flex items-center gap-1.5"
+                      >
+                        <Plus className="h-3.5 w-3.5 stroke-[3]" />
+                        접수상담기록지 양식 작성하기
+                      </button>
+                      <button
+                        onClick={() => setIntakeSubTab('job_seeking')}
+                        className="py-2 px-4 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 font-extrabold text-xs rounded-xl transition-all shadow-xs inline-flex items-center gap-1.5"
+                      >
+                        <PenTool className="h-3.5 w-3.5" />
+                        구직상담기록지 &amp; 동의서 바로 열기
+                      </button>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
           )}
 
           {/* TAB CONTENT 1: Purdue Pegboard */}

@@ -438,7 +438,7 @@ export default function ClientManager({
                   className="py-2.5 px-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-extrabold text-xs rounded-2xl transition-all flex items-center gap-1.5 shadow-sm"
                 >
                   <FileSpreadsheet className="h-4 w-4" />
-                  신규 훈련생 상황/종합평가
+                  신규 훈련생 상황평가
                 </button>
               )}
 

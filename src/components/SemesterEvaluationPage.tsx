@@ -302,7 +302,7 @@ export const get5DomainScoresForSubject = (
   }));
 };
 
-// Initial Default for 직종훈련 성적표 (Page 1)
+// Initial Default for 직종훈련 평가표 (Page 1)
 export const getDefaultJobReport = (client: Client | null, period: 'first' | 'second' = 'first'): MidtermJobTrainingReport => {
   const defaultMajorSubjects = client?.trainingClass === '스마트산업반'
     ? DEFAULT_MAJOR_ITEMS_SMART
@@ -665,7 +665,7 @@ export default function SemesterEvaluationPage({
     }
 
     const termLabel = activeSemesterTab === 'first_half' ? '상반기 평가표' : activeSemesterTab === 'second_half' ? '하반기 평가표' : '상·하반기 전체 평가표';
-    setSaveToast(`${termLabel} 및 개별화계획서(IWP)가 성공적으로 저장 및 동기화되었습니다.`);
+    setSaveToast(`${termLabel} 및 개별화계획서(IPE)가 성공적으로 저장 및 동기화되었습니다.`);
     setTimeout(() => setSaveToast(null), 3000);
   };
 
@@ -1087,7 +1087,7 @@ export default function SemesterEvaluationPage({
                 className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
               >
                 <Save className="h-3.5 w-3.5" />
-                저장 및 IWP 동기화
+                저장 및 IPE 동기화
               </button>
             </div>
           </div>
@@ -1180,17 +1180,17 @@ export default function SemesterEvaluationPage({
               <div className="flex items-center gap-2 self-end md:self-auto">
                 <span className="text-[11px] font-bold text-sky-800 bg-white px-3 py-1 rounded-xl border border-sky-200 shadow-xs flex items-center gap-1.5">
                   <FolderSync className="h-3.5 w-3.5 text-sky-600" />
-                  상반기 IWP 동기화 지원
+                  상반기 IPE 동기화 지원
                 </span>
               </div>
             </div>
 
-            {/* Part 1: 직종훈련 프로그램 상반기 중간평가 성적표 & 세부 평가표 */}
+            {/* Part 1: 직종훈련 프로그램 상반기 중간평가표 & 세부 평가표 */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1 print:hidden">
                 <FileSpreadsheet className="h-4 w-4 text-sky-600" />
                 <h2 className="text-sm font-black text-slate-800">
-                  직종훈련 프로그램 및 전공·공통과목 상반기 중간평가 성적표
+                  직종훈련 프로그램 및 전공·공통과목 상반기 중간평가표
                 </h2>
               </div>
               
@@ -1519,17 +1519,17 @@ export default function SemesterEvaluationPage({
               <div className="flex items-center gap-2 self-end md:self-auto">
                 <span className="text-[11px] font-bold text-emerald-800 bg-white px-3 py-1 rounded-xl border border-emerald-200 shadow-xs flex items-center gap-1.5">
                   <FolderSync className="h-3.5 w-3.5 text-emerald-600" />
-                  하반기/연간 IWP 동기화 지원
+                  하반기/연간 IPE 동기화 지원
                 </span>
               </div>
             </div>
 
-            {/* Part 1: 직종훈련 프로그램 하반기 기말평가 성적표 & 세부 평가표 */}
+            {/* Part 1: 직종훈련 프로그램 하반기 기말평가표 & 세부 평가표 */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1 print:hidden">
                 <FileSpreadsheet className="h-4 w-4 text-emerald-700" />
                 <h2 className="text-sm font-black text-slate-800">
-                  직종훈련 프로그램 및 전공·공통과목 하반기 기말평가 성적표
+                  직종훈련 프로그램 및 전공·공통과목 하반기 기말평가표
                 </h2>
               </div>
               

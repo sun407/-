@@ -901,14 +901,14 @@ export default function IWPPlanForm({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
-                연초 1회 수립 (IWP)
+                {formData.termType === '2차' ? '하반기 재수립 (IPE)' : '연초 수립 (IPE)'}
               </span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                 {formData.name} 훈련생
               </span>
             </div>
             <h1 className="text-base font-black text-slate-900 mt-0.5 flex items-center gap-2">
-              개별화재활계획서 (개별화서비스계획서) 작성 및 편집
+              {formData.termType === '2차' ? '2차' : '1차'} 개별화재활계획서(IPE) 작성 및 편집
             </h1>
             <p className="text-xs text-slate-500">
               사전 3대 진단평가(ERS 직업준비검사, 퍼듀펙보드, 그림직업흥미검사) 결과를 바탕으로 연초 재활계획을 수립합니다.

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Client, ClientIntakeRecord } from '../types';
-import { Printer, Edit3, ArrowLeft, UploadCloud } from 'lucide-react';
+import { Printer, Edit3, ArrowLeft, UploadCloud, PenTool } from 'lucide-react';
 import FamilyGenogram from './FamilyGenogram';
 
 interface IntakeReportProps {
@@ -9,9 +9,10 @@ interface IntakeReportProps {
   onEdit: () => void;
   onBack: () => void;
   onOpenPictureInterestModal?: () => void;
+  onOpenJobSeeking?: () => void;
 }
 
-export default function IntakeReport({ client, record, onEdit, onBack, onOpenPictureInterestModal }: IntakeReportProps) {
+export default function IntakeReport({ client, record, onEdit, onBack, onOpenPictureInterestModal, onOpenJobSeeking }: IntakeReportProps) {
   const handlePrint = () => {
     window.print();
   };
@@ -43,6 +44,15 @@ export default function IntakeReport({ client, record, onEdit, onBack, onOpenPic
         </button>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onOpenJobSeeking && (
+            <button
+              onClick={onOpenJobSeeking}
+              className="py-2 px-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 border border-indigo-200 shadow-xs"
+            >
+              <PenTool className="h-4 w-4 text-indigo-600" />
+              구직상담기록지 &amp; 동의서 (2매 서식/서명)
+            </button>
+          )}
           <button
             onClick={onEdit}
             className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 border border-slate-200"

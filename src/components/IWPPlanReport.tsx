@@ -47,7 +47,7 @@ export default function IWPPlanReport({ plan, onBack, onEdit }: IWPPlanReportPro
                 {termLabel} 계획서
               </span>
               <h2 className="text-sm font-extrabold text-slate-800">
-                {plan.name} 훈련생 {termLabel} 개별화재활계획서 ({termSubtitle})
+                {plan.name} 훈련생 {termLabel} 개별화재활계획서(IPE) ({termSubtitle})
               </h2>
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
@@ -87,7 +87,7 @@ export default function IWPPlanReport({ plan, onBack, onEdit }: IWPPlanReportPro
         {/* Document Header Title */}
         <div className="text-center pb-3 border-b-2 border-slate-950 mb-3">
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-950">
-            {termLabel} 개별화재활계획서
+            {termLabel} 개별화재활계획서(IPE)
             <span className="text-xs md:text-sm font-semibold ml-2 text-slate-600">
               ({termSubtitle})
             </span>
@@ -460,7 +460,7 @@ export default function IWPPlanReport({ plan, onBack, onEdit }: IWPPlanReportPro
 
         {/* Page 1 Footer Note (Print indicator) */}
         <div className="text-right text-[8.5px] text-slate-400 font-mono mt-1">
-          1 / 2 페이지 ({termLabel} 개별화재활계획서)
+          1 / 2 페이지 ({termLabel} 개별화재활계획서(IPE))
         </div>
       </div>
 
@@ -759,7 +759,7 @@ export default function IWPPlanReport({ plan, onBack, onEdit }: IWPPlanReportPro
 
         {/* Page 2 Footer Note */}
         <div className="text-right text-[8.5px] text-slate-400 font-mono">
-          2 / 2 페이지 ({termLabel} 개별화재활계획서)
+          2 / 2 페이지 ({termLabel} 개별화재활계획서(IPE))
         </div>
       </div>
 

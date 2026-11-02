@@ -60,7 +60,7 @@ const DOMAIN_GUIDANCE_MAP: Record<string, { guide: string; service: string; goal
 };
 
 /**
- * 훈련생 정보 및 검사 기록을 기반으로 개별화재활계획서(IWP) 1차 또는 2차 기본 데이터 자동 생성
+ * 훈련생 정보 및 검사 기록을 기반으로 개별화재활계획서(IPE) 1차 또는 2차 기본 데이터 자동 생성
  */
 export function generateDefaultIWP(
   client: Client,
@@ -437,7 +437,7 @@ export function generateDefaultIWP(
     // 8. 지원계획회의
     caseConferenceDate: isSecond ? `'${String(currentYear).slice(-2)}. 8. 7.` : `'${String(currentYear).slice(-2)}. 2. 2.`,
     caseConferenceContent: isSecond
-      ? '- 상반기 중간평가 결과 공유 및 2차 개별화재활계획서(IWP) 재수립 심의'
+      ? '- 상반기 중간평가 결과 공유 및 2차 개별화재활계획서(IPE) 재수립 심의'
       : '- 상황평가 내용 공유 및 직업적응훈련반 선정 여부 논의',
     caseConferenceNote: isSecond
       ? '2차 재수립 계획 원안 승인\n(하반기 맞춤형 훈련 지속 지원)'

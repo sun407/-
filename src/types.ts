@@ -138,6 +138,95 @@ export interface ClientIntakeRecord {
 
 export type TrainingClassType = '문화예술반' | '스마트산업반';
 
+export interface JobSeekingTrainingItem {
+  institution: string;
+  period: string;
+  jobType: string;
+}
+
+export interface JobSeekingCertificateItem {
+  certName: string;
+  date: string;
+  note: string;
+}
+
+export interface JobSeekingCareerItem {
+  companyName: string;
+  jobTitle: string;
+  periodAndType: string;
+  salary: string;
+  leaveReason: string;
+}
+
+export interface JobSeekingDocument {
+  id: string;
+  clientId: string;
+  receiptNo?: string;
+  counselor?: string;
+  counselDate?: string;
+  counselDayOfWeek?: string;
+  
+  // Basic info (overrides or defaults)
+  name?: string;
+  birthDate?: string;
+  age?: string;
+  gender?: 'M' | 'F';
+  address?: string;
+  phoneSelf?: string;
+  phoneGuard?: string;
+  email?: string;
+  maritalStatus?: string; // 미혼, 기혼, 동거, 이혼, 사별
+  economicStatus?: string; // 기초생활수급자, 차상위계층, 비해당
+  disabilityType?: string;
+  disabilityGrade?: string;
+  assistiveDeviceUse?: '무' | '유';
+  assistiveDeviceDetail?: string;
+  
+  // Health
+  medicationUse?: '무' | '유';
+  medicationDetail?: string;
+  medicationMethod?: string;
+  healthCondition?: string;
+
+  // Education
+  educationLevel?: string; // 무학, 초졸, 중졸, 고졸, 전문대졸, 대졸 이상
+
+  // Lists
+  trainingList: JobSeekingTrainingItem[];
+  certList: JobSeekingCertificateItem[];
+  careerList: JobSeekingCareerItem[];
+
+  // Desired conditions
+  desiredJobType?: string;
+  desiredEmploymentType?: string;
+  desiredWorkLocation?: string;
+  desiredWorkHours?: string;
+  desiredSalary?: string;
+  desiredNotes?: string;
+
+  // Counselor opinion & signatures
+  summaryOpinion?: string;
+  applicantSignature?: string; // data URL or text
+  counselorSignature?: string; // data URL or text
+
+  // Page 2: Privacy Agreement Checkboxes
+  agreePurpose: boolean; // 개인정보 수집 및 이용목적, 거부에 따른 불이익
+  agreeBasic: boolean; // 기본개인정보
+  agreeDisabilityInfo: boolean; // 민감정보 - 장애정보 이용
+  agreePhotoVideo: boolean; // 민감정보 - 사진 및 영상 활용
+  agreeUniqueId: boolean; // 고유식별정보 처리
+  agreeThirdParty: boolean; // 개인정보 제3자 정보제공·이용
+
+  agreementDate: string; // YYYY-MM-DD
+  isDelegated: boolean; // 대리인 위임 여부
+  applicantSignerName: string;
+  applicantSignerCanvas?: string; // 태블릿 직접 서명 (data URL)
+  guardianSignerName: string;
+  guardianSignerCanvas?: string; // 보호자/대리인 태블릿 직접 서명 (data URL)
+
+  updatedAt?: string;
+}
+
 export interface Client {
   id: string; // Unique UUID or customized string
   name: string;
@@ -145,7 +234,7 @@ export interface Client {
   gender: 'M' | 'F';
   diagnosis: string; // e.g., stroke, spinal cord injury, carpaltunnel, healthy etc.
   handDominance: 'R' | 'L' | 'Ambi';
-  userType?: '신규' | '기존'; // '신규': 신규 입소 훈련생 (2주 상황/종합평가 필수) | '기존': 기존 계속 훈련생 (상황/종합평가 생략 가능, 기본값)
+  userType?: '신규' | '기존'; // '신규': 신규 입소 훈련생 (2주 상황평가 필수) | '기존': 기존 계속 훈련생 (상황평가 생략 가능, 기본값)
   trainingClass?: TrainingClassType; // '문화예술반' | '스마트산업반'
   selectedSubjects?: string[]; // 선택 수강 과목 3가지
   serviceStartDate?: string; // 훈련반 이용 시작일 (YYYY-MM-DD)
@@ -154,6 +243,7 @@ export interface Client {
   memos: string;
   createdAt: string; // ISO date
   intakeRecord?: ClientIntakeRecord; // 접수상담기록지 및 사회평가지 데이터
+  jobSeekingDoc?: JobSeekingDocument; // 구직상담기록지 및 개인정보수집·이용동의서 (A4 2매 양식)
 }
 
 // 신규 훈련생 상황평가일지 및 종합 평가기록부 타입
@@ -319,7 +409,7 @@ export interface PictureInterestPDF {
   createdAt: string;
 }
 
-// 개별화서비스계획서 (Individualized Service Plan - IWP) 타입
+// 개별화서비스계획서 (Individualized Service Plan - IPE / IWP) 타입
 export interface IWPErsDomainScore {
   domain: string;        // '일상생활' | '인지기술' | '자존감' | '직업의식' | '사회기술' | '직업기술' | '작업기술'
   rawScore: number;      // 원점수
@@ -534,7 +624,7 @@ export interface MidtermEvaluationReportData {
   updatedAt: string;
 }
 
-// 상·하반기 훈련 비교평가표 (3-4 & 3-5 비교 분석 전용 데이터 및 상단 중간평가 성적표들)
+// 상·하반기 훈련 비교평가표 (3-4 & 3-5 비교 분석 전용 데이터 및 상단 중간평가표들)
 export interface MidtermDomainScoreItem {
   domainName: string; // 평가영역 항목명 (예: 도구 조작, 표현력, 음정/박자 등)
   maxScore: number;   // 5점 만점
@@ -588,7 +678,7 @@ export interface SemesterEvaluationData {
   evaluatorName: string;
 
   // === 상반기 (1차 평가 / 6월) ===
-  // 1. 직종훈련 프로그램 상반기 중간평가 성적표 (Page 1)
+  // 1. 직종훈련 프로그램 상반기 중간평가표 (Page 1)
   midtermJobReport?: MidtermJobTrainingReport;
   // 2. 각 직종 훈련과목별 세부 전공훈련 상반기 중간평가표 목록 (Page 2-1, 2-2, ...)
   subjectDetailedReports?: MidtermSubjectDetailedReport[];
@@ -602,7 +692,7 @@ export interface SemesterEvaluationData {
   firstHalfMajorNotes?: string;
 
   // === 하반기 (2차 평가 / 12월 & 종합비교) ===
-  // 1. 직종훈련 프로그램 하반기 기말평가 성적표
+  // 1. 직종훈련 프로그램 하반기 기말평가표
   secondHalfJobReport?: MidtermJobTrainingReport;
   // 2. 각 직종 훈련과목별 세부 전공훈련 하반기 기말평가표 목록
   secondHalfSubjectDetailedReports?: MidtermSubjectDetailedReport[];
