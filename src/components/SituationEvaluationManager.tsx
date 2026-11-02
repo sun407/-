@@ -5,6 +5,7 @@ import {
   SituationEvaluationRow,
   ComprehensiveEvaluationReport,
 } from '../types';
+import { auth, saveSituationLogToFirestore } from '../lib/firebase';
 import {
   COMPREHENSIVE_EVALUATION_QUESTIONS,
   FREQUENT_EVAL_NOTES,
@@ -281,6 +282,13 @@ export default function SituationEvaluationManager({
   };
 
   const handleSaveAll = () => {
+    if (selectedClient) {
+      localStorage.setItem(`sit_log_${selectedClient.id}`, JSON.stringify(situationLogData));
+      localStorage.setItem(`comp_report_${selectedClient.id}`, JSON.stringify(comprehensiveReportData));
+      if (auth.currentUser) {
+        saveSituationLogToFirestore(situationLogData).catch(console.error);
+      }
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
   };

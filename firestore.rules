@@ -1,0 +1,157 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helper Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'password');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'sun@suwonrehab.or.kr' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validation Functions ---
+    function isValidClient(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (!('diagnosis' in data) || (data.diagnosis is string && data.diagnosis.size() <= 300)) &&
+             (!('memos' in data) || (data.memos is string && data.memos.size() <= 10000));
+    }
+
+    function isValidPurdueTest(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.clientId is string && isValidId(data.clientId) &&
+             data.testDate is string && data.testDate.size() <= 50 &&
+             data.rightHand is number &&
+             data.leftHand is number &&
+             data.bothHands is number &&
+             data.assembly is number;
+    }
+
+    function isValidErsTest(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.clientId is string && isValidId(data.clientId) &&
+             data.testDate is string && data.testDate.size() <= 50 &&
+             data.totalScore is number &&
+             data.averageScore is number;
+    }
+
+    function isValidAcademicTest(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.clientId is string && isValidId(data.clientId) &&
+             data.testDate is string && data.testDate.size() <= 50;
+    }
+
+    function isValidIwpPlan(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.clientId is string && isValidId(data.clientId) &&
+             data.name is string && data.name.size() <= 100;
+    }
+
+    function isValidSituationLog(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.clientId is string && isValidId(data.clientId);
+    }
+
+    function isValidSemesterEval(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.clientId is string && isValidId(data.clientId);
+    }
+
+    // --- Collections ---
+
+    // 1. Clients
+    match /clients/{clientId} {
+      allow get: if isSignedIn() && isValidId(clientId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(clientId) && isValidClient(incoming()) && incoming().id == clientId;
+      allow update: if isSignedIn() && isValidId(clientId) && isValidClient(incoming()) && incoming().id == existing().id;
+      allow delete: if isAdmin() && isValidId(clientId);
+    }
+
+    // 2. Purdue Tests
+    match /purdueTests/{testId} {
+      allow get: if isSignedIn() && isValidId(testId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(testId) && isValidPurdueTest(incoming()) && incoming().id == testId;
+      allow update: if isSignedIn() && isValidId(testId) && isValidPurdueTest(incoming()) && incoming().id == existing().id;
+      allow delete: if isSignedIn() && isValidId(testId);
+    }
+
+    // 3. ERS Tests
+    match /ersTests/{testId} {
+      allow get: if isSignedIn() && isValidId(testId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(testId) && isValidErsTest(incoming()) && incoming().id == testId;
+      allow update: if isSignedIn() && isValidId(testId) && isValidErsTest(incoming()) && incoming().id == existing().id;
+      allow delete: if isSignedIn() && isValidId(testId);
+    }
+
+    // 4. Academic Tests
+    match /academicTests/{testId} {
+      allow get: if isSignedIn() && isValidId(testId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(testId) && isValidAcademicTest(incoming()) && incoming().id == testId;
+      allow update: if isSignedIn() && isValidId(testId) && isValidAcademicTest(incoming()) && incoming().id == existing().id;
+      allow delete: if isSignedIn() && isValidId(testId);
+    }
+
+    // 5. IPE / IWP Service Plans
+    match /iwpPlans/{planId} {
+      allow get: if isSignedIn() && isValidId(planId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(planId) && isValidIwpPlan(incoming()) && incoming().id == planId;
+      allow update: if isSignedIn() && isValidId(planId) && isValidIwpPlan(incoming()) && incoming().id == existing().id;
+      allow delete: if isSignedIn() && isValidId(planId);
+    }
+
+    // 6. Situation Evaluation Logs
+    match /situationLogs/{logId} {
+      allow get: if isSignedIn() && isValidId(logId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(logId) && isValidSituationLog(incoming()) && incoming().id == logId;
+      allow update: if isSignedIn() && isValidId(logId) && isValidSituationLog(incoming()) && incoming().id == existing().id;
+      allow delete: if isSignedIn() && isValidId(logId);
+    }
+
+    // 7. Semester Evaluation Data
+    match /semesterEvaluations/{evalId} {
+      allow get: if isSignedIn() && isValidId(evalId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(evalId) && isValidSemesterEval(incoming()) && incoming().id == evalId;
+      allow update: if isSignedIn() && isValidId(evalId) && isValidSemesterEval(incoming()) && incoming().id == existing().id;
+      allow delete: if isSignedIn() && isValidId(evalId);
+    }
+
+    // 8. Admins collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && isValidId(adminId);
+      allow write: if isAdmin() && isValidId(adminId);
+    }
+  }
+}

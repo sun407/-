@@ -1,0 +1,177 @@
+{
+  "entities": {
+    "Client": {
+      "title": "Client",
+      "description": "Rehabilitation trainee profile, intake assessment, and job-seeking consultation document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "birthDate": { "type": "string", "maxLength": 20 },
+        "gender": { "type": "string", "enum": ["M", "F"] },
+        "diagnosis": { "type": "string", "maxLength": 200 },
+        "handDominance": { "type": "string", "enum": ["R", "L", "Ambi"] },
+        "userType": { "type": "string", "maxLength": 20 },
+        "trainingClass": { "type": "string", "maxLength": 50 },
+        "serviceStartDate": { "type": "string", "maxLength": 20 },
+        "serviceEndDate": { "type": "string", "maxLength": 20 },
+        "memos": { "type": "string", "maxLength": 5000 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "name"]
+    },
+    "PurdueTest": {
+      "title": "PurdueTest",
+      "description": "Purdue Pegboard dexterity assessment result",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "testDate": { "type": "string", "maxLength": 30 },
+        "year": { "type": "number" },
+        "round": { "type": "string", "maxLength": 20 },
+        "rightHand": { "type": "number" },
+        "leftHand": { "type": "number" },
+        "bothHands": { "type": "number" },
+        "assembly": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 5000 },
+        "evaluatorName": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "clientId", "testDate"]
+    },
+    "ERSTest": {
+      "title": "ERSTest",
+      "description": "Vocational ERS assessment result",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "testDate": { "type": "string", "maxLength": 30 },
+        "year": { "type": "number" },
+        "round": { "type": "string", "maxLength": 20 },
+        "type": { "type": "string", "maxLength": 50 },
+        "totalScore": { "type": "number" },
+        "averageScore": { "type": "number" },
+        "interpretation": { "type": "string", "maxLength": 5000 },
+        "notes": { "type": "string", "maxLength": 5000 },
+        "evaluatorName": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "clientId", "testDate"]
+    },
+    "BasicAcademicTest": {
+      "title": "BasicAcademicTest",
+      "description": "Basic academic and cognitive evaluation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "testDate": { "type": "string", "maxLength": 30 },
+        "year": { "type": "number" },
+        "evaluatorName": { "type": "string", "maxLength": 100 },
+        "overallNotes": { "type": "string", "maxLength": 5000 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "clientId", "testDate"]
+    },
+    "IndividualizedServicePlan": {
+      "title": "IndividualizedServicePlan",
+      "description": "IPE Individualized Rehabilitation Service Plan",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "year": { "type": "number" },
+        "termType": { "type": "string", "maxLength": 20 },
+        "planType": { "type": "string", "maxLength": 20 },
+        "trainingClass": { "type": "string", "maxLength": 50 },
+        "planDate": { "type": "string", "maxLength": 30 },
+        "name": { "type": "string", "maxLength": 100 },
+        "longTermGoal": { "type": "string", "maxLength": 2000 },
+        "evaluatorName": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "clientId", "name"]
+    },
+    "SituationEvaluationLog": {
+      "title": "SituationEvaluationLog",
+      "description": "New trainee situation evaluation log and comprehensive report",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "year": { "type": "number" },
+        "evaluatorName": { "type": "string", "maxLength": 100 },
+        "teamLeadName": { "type": "string", "maxLength": 100 },
+        "startDate": { "type": "string", "maxLength": 30 },
+        "endDate": { "type": "string", "maxLength": 30 },
+        "specialNotes": { "type": "string", "maxLength": 5000 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "clientId"]
+    },
+    "SemesterEvaluationData": {
+      "title": "SemesterEvaluationData",
+      "description": "Semester midterm / final evaluation reports and comparisons",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "year": { "type": "number" },
+        "evaluatorName": { "type": "string", "maxLength": 100 },
+        "trainingCompareNotes": { "type": "string", "maxLength": 5000 },
+        "majorCompareNotes": { "type": "string", "maxLength": 5000 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "clientId"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized administrator / staff record",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Trainee case files and documentation"
+    },
+    "/purdueTests/{testId}": {
+      "schema": "PurdueTest",
+      "description": "Purdue Pegboard dexterity evaluations"
+    },
+    "/ersTests/{testId}": {
+      "schema": "ERSTest",
+      "description": "ERS vocational readiness evaluations"
+    },
+    "/academicTests/{testId}": {
+      "schema": "BasicAcademicTest",
+      "description": "Basic academic and cognitive test records"
+    },
+    "/iwpPlans/{planId}": {
+      "schema": "IndividualizedServicePlan",
+      "description": "Individualized rehabilitation service plans (IPE)"
+    },
+    "/situationLogs/{logId}": {
+      "schema": "SituationEvaluationLog",
+      "description": "Situation evaluation logs and comprehensive reports"
+    },
+    "/semesterEvaluations/{evalId}": {
+      "schema": "SemesterEvaluationData",
+      "description": "Midterm and final semester evaluation reports"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Administrative role mapping for facility supervisors"
+    }
+  }
+}

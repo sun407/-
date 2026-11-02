@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { User } from 'firebase/auth';
 import { Client, PurdueTest, ERSTest, BasicAcademicTest, PictureInterestPDF, IndividualizedServicePlan } from './types';
 import { loadPictureInterestPdfs, savePictureInterestPdfs } from './utils/pdfStorage';
 import ClientManager from './components/ClientManager';
@@ -16,7 +17,43 @@ import BasicAcademicForm from './components/BasicAcademicForm';
 import BasicAcademicReport from './components/BasicAcademicReport';
 import SituationEvaluationManager from './components/SituationEvaluationManager';
 import SemesterEvaluationPage from './components/SemesterEvaluationPage';
-import { ClipboardList, LayoutDashboard, Activity, Sparkles, FileSpreadsheet, BookOpen, TrendingUp } from 'lucide-react';
+import {
+  ClipboardList,
+  LayoutDashboard,
+  Activity,
+  Sparkles,
+  FileSpreadsheet,
+  BookOpen,
+  TrendingUp,
+  Cloud,
+  CloudCheck,
+  LogIn,
+  LogOut,
+  RefreshCw,
+  ShieldCheck
+} from 'lucide-react';
+import {
+  auth,
+  signInWithGoogle,
+  signOutUser,
+  testFirestoreConnection,
+  saveClientToFirestore,
+  deleteClientFromFirestore,
+  subscribeToClients,
+  savePurdueTestToFirestore,
+  deletePurdueTestFromFirestore,
+  subscribeToPurdueTests,
+  saveErsTestToFirestore,
+  deleteErsTestFromFirestore,
+  subscribeToErsTests,
+  saveAcademicTestToFirestore,
+  deleteAcademicTestFromFirestore,
+  subscribeToAcademicTests,
+  saveIwpPlanToFirestore,
+  deleteIwpPlanFromFirestore,
+  subscribeToIwpPlans
+} from './lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // Default empty array as we are deleting default trainees: 김우석, 박다영, 최윤호
 const DEFAULT_CLIENTS: Client[] = [];
@@ -120,6 +157,116 @@ export default function App() {
   }, [pictureInterestPdfs]);
 
 
+  // Firebase Auth & Cloud Sync States
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
+
+  // Connection check on boot per Skill Guidelines
+  useEffect(() => {
+    testFirestoreConnection().then(connected => {
+      setIsFirebaseConnected(connected);
+    });
+  }, []);
+
+  // Listen to Auth State
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setIsAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time Firestore Sync when Authenticated
+  useEffect(() => {
+    if (!currentUser) return;
+
+    setSyncStatus('syncing');
+
+    const unsubClients = subscribeToClients((remoteClients) => {
+      if (remoteClients && remoteClients.length > 0) {
+        setClients(remoteClients);
+      }
+      setSyncStatus('synced');
+    });
+
+    const unsubPurdue = subscribeToPurdueTests((remote) => {
+      if (remote && remote.length > 0) {
+        setPurdueTests(remote);
+      }
+    });
+
+    const unsubErs = subscribeToErsTests((remote) => {
+      if (remote && remote.length > 0) {
+        setErsTests(remote);
+      }
+    });
+
+    const unsubAcademic = subscribeToAcademicTests((remote) => {
+      if (remote && remote.length > 0) {
+        setBasicAcademicTests(remote);
+      }
+    });
+
+    const unsubIwp = subscribeToIwpPlans((remote) => {
+      if (remote && remote.length > 0) {
+        setIwpPlans(remote);
+      }
+    });
+
+    return () => {
+      unsubClients();
+      unsubPurdue();
+      unsubErs();
+      unsubAcademic();
+      unsubIwp();
+    };
+  }, [currentUser]);
+
+  // Manual one-click full backup to Firebase Cloud
+  const handleManualSyncToCloud = async () => {
+    if (!currentUser) {
+      try {
+        await signInWithGoogle();
+      } catch (err) {
+        return;
+      }
+    }
+    setIsManualSyncing(true);
+    setSyncStatus('syncing');
+    try {
+      // Push all current clients
+      for (const client of clients) {
+        await saveClientToFirestore(client);
+      }
+      // Push all purdue tests
+      for (const test of purdueTests) {
+        await savePurdueTestToFirestore(test);
+      }
+      // Push all ers tests
+      for (const test of ersTests) {
+        await saveErsTestToFirestore(test);
+      }
+      // Push academic tests
+      for (const test of basicAcademicTests) {
+        await saveAcademicTestToFirestore(test);
+      }
+      // Push iwp plans
+      for (const plan of iwpPlans) {
+        await saveIwpPlanToFirestore(plan);
+      }
+      setSyncStatus('synced');
+    } catch (err) {
+      console.error('Manual sync failed:', err);
+      setSyncStatus('error');
+    } finally {
+      setIsManualSyncing(false);
+    }
+  };
+
   // Client Handlers
   const handleAddClient = (newClientData: Omit<Client, 'id' | 'createdAt'>) => {
     const newClient: Client = {
@@ -130,11 +277,21 @@ export default function App() {
     setClients(prev => [newClient, ...prev]);
     setSelectedClient(newClient);
     setActiveRoute('workspace');
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      saveClientToFirestore(newClient).catch(console.error);
+    }
   };
 
   const handleUpdateClient = (updatedClient: Client) => {
     setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
     setSelectedClient(updatedClient);
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      saveClientToFirestore(updatedClient).catch(console.error);
+    }
   };
 
   const handleDeleteClient = (id: string) => {
@@ -154,6 +311,11 @@ export default function App() {
     
     // Move back to main roster directory page
     setActiveRoute('clients');
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      deleteClientFromFirestore(id).catch(console.error);
+    }
   };
 
   // IWP Plan Handlers
@@ -167,10 +329,20 @@ export default function App() {
       }
       return [plan, ...prev];
     });
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      saveIwpPlanToFirestore(plan).catch(console.error);
+    }
   };
 
   const handleDeleteIWPPlan = (id: string) => {
     setIwpPlans(prev => prev.filter(p => p.id !== id));
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      deleteIwpPlanFromFirestore(id).catch(console.error);
+    }
   };
 
   // Purdue Test Handlers
@@ -186,10 +358,20 @@ export default function App() {
     setPurdueTests(prev => [testWithId, ...prev]);
     setViewingPurdueTest(testWithId);
     setActiveRoute('purdue_report');
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      savePurdueTestToFirestore(testWithId).catch(console.error);
+    }
   };
 
   const handleDeletePurdueTest = (id: string) => {
     setPurdueTests(prev => prev.filter(t => t.id !== id));
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      deletePurdueTestFromFirestore(id).catch(console.error);
+    }
   };
 
   // ERS Test Handlers
@@ -205,10 +387,20 @@ export default function App() {
     setErsTests(prev => [testWithId, ...prev]);
     setViewingErsTest(testWithId);
     setActiveRoute('ers_report');
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      saveErsTestToFirestore(testWithId).catch(console.error);
+    }
   };
 
   const handleDeleteErsTest = (id: string) => {
     setErsTests(prev => prev.filter(t => t.id !== id));
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      deleteErsTestFromFirestore(id).catch(console.error);
+    }
   };
 
   // Basic Academic Test Handlers
@@ -216,10 +408,20 @@ export default function App() {
     setBasicAcademicTests(prev => [newTest, ...prev]);
     setViewingAcademicTest(newTest);
     setActiveRoute('basic_academic_report');
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      saveAcademicTestToFirestore(newTest).catch(console.error);
+    }
   };
 
   const handleDeleteBasicAcademicTest = (id: string) => {
     setBasicAcademicTests(prev => prev.filter(t => t.id !== id));
+
+    // Cloud Firestore Sync
+    if (currentUser) {
+      deleteAcademicTestFromFirestore(id).catch(console.error);
+    }
   };
 
   // Picture Interest PDF Handlers
@@ -318,11 +520,45 @@ export default function App() {
           </button>
         </nav>
 
-        <div className="hidden lg:flex items-center gap-4">
-          <span className="text-xs text-indigo-200 font-semibold bg-white/5 border border-indigo-400/20 px-3 py-1 rounded-full flex items-center gap-1">
-            <Sparkles className="h-3 w-3 text-indigo-400" />
-            직업적응 및 직업훈련 솔루션
-          </span>
+        {/* Firebase Authentication & Cloud Sync Widget */}
+        <div className="flex items-center gap-2">
+          {currentUser ? (
+            <div className="flex items-center gap-2 bg-slate-800/80 border border-slate-700/60 rounded-xl px-2.5 py-1 text-xs">
+              <span className="flex items-center gap-1.5 text-emerald-400 font-semibold text-[11px]">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                <CloudCheck className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Firebase 연동됨</span>
+              </span>
+              <span className="text-slate-400 text-[10px] max-w-[130px] truncate" title={currentUser.email || ''}>
+                {currentUser.displayName || currentUser.email}
+              </span>
+              <button
+                onClick={handleManualSyncToCloud}
+                disabled={isManualSyncing}
+                title="현재 로컬/임시 데이터를 파이어베이스 클라우드로 전체 즉시 백업"
+                className="p-1 rounded-md bg-indigo-600/60 hover:bg-indigo-600 text-indigo-100 transition-all flex items-center gap-1 text-[10px] font-bold px-1.5"
+              >
+                <RefreshCw className={`h-3 w-3 ${isManualSyncing ? 'animate-spin' : ''}`} />
+                <span>백업</span>
+              </button>
+              <button
+                onClick={() => signOutUser()}
+                title="로그아웃"
+                className="p-1 rounded-md hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 transition-all"
+              >
+                <LogOut className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => signInWithGoogle()}
+              className="px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-sm transition-all border border-indigo-400/30"
+              title="Google 계정으로 로그인하여 파이어베이스에 데이터를 실시간 동기화합니다."
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Google 로그인 (데이터 클라우드 연동)</span>
+            </button>
+          )}
         </div>
       </header>
 

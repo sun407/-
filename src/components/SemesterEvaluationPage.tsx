@@ -8,6 +8,7 @@ import {
   MidtermSubjectDetailedReport,
   MidtermDomainScoreItem
 } from '../types';
+import { auth, saveSemesterEvalToFirestore } from '../lib/firebase';
 import { 
   BarChart3, 
   Save, 
@@ -645,6 +646,11 @@ export default function SemesterEvaluationPage({
 
     // Save to LocalStorage
     localStorage.setItem(`semester_eval_${currentClient.id}_${evaluationYear}`, JSON.stringify(data));
+
+    // Save to Firebase Cloud
+    if (auth.currentUser) {
+      saveSemesterEvalToFirestore(data).catch(console.error);
+    }
 
     // Synchronize into client's IWP Plan if exists
     if (onSaveIWPPlan) {
