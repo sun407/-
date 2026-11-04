@@ -1,727 +1,350 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
-import { Client, PurdueTest, ERSTest, BasicAcademicTest, PictureInterestPDF, IndividualizedServicePlan } from './types';
-import { loadPictureInterestPdfs, savePictureInterestPdfs } from './utils/pdfStorage';
-import ClientManager from './components/ClientManager';
-import ClientWorkspace from './components/ClientWorkspace';
-import PurdueForm from './components/PurdueForm';
-import PurdueReport from './components/PurdueReport';
-import ERSForm from './components/ERSForm';
-import ERSReport from './components/ERSReport';
-import BasicAcademicForm from './components/BasicAcademicForm';
-import BasicAcademicReport from './components/BasicAcademicReport';
-import SituationEvaluationManager from './components/SituationEvaluationManager';
-import SemesterEvaluationPage from './components/SemesterEvaluationPage';
-import {
-  ClipboardList,
-  LayoutDashboard,
-  Activity,
-  Sparkles,
-  FileSpreadsheet,
-  BookOpen,
-  TrendingUp,
-  Cloud,
-  CloudCheck,
-  LogIn,
-  LogOut,
-  RefreshCw,
-  ShieldCheck
-} from 'lucide-react';
-import {
-  auth,
-  signInWithGoogle,
-  signOutUser,
-  testFirestoreConnection,
-  saveClientToFirestore,
-  deleteClientFromFirestore,
-  subscribeToClients,
-  savePurdueTestToFirestore,
-  deletePurdueTestFromFirestore,
-  subscribeToPurdueTests,
-  saveErsTestToFirestore,
-  deleteErsTestFromFirestore,
-  subscribeToErsTests,
-  saveAcademicTestToFirestore,
-  deleteAcademicTestFromFirestore,
-  subscribeToAcademicTests,
-  saveIwpPlanToFirestore,
-  deleteIwpPlanFromFirestore,
-  subscribeToIwpPlans
-} from './lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { ResumeData, AccessibilityLevel } from './types';
+import { SAMPLE_RESUME_DATA } from './data/presets';
+import { Header } from './components/Header';
+import { QuestionWizard } from './components/QuestionWizard';
+import { ResumePreview } from './components/ResumePreview';
+import { CloudSyncModal } from './components/CloudSyncModal';
+import { exportResumeToPdf, stopSpeech } from './utils/pdfExport';
+import { 
+  auth, 
+  testConnection, 
+  fetchUserResumes, 
+  isPhotoExpired 
+} from './firebase';
+import { Heart, Sparkles, FileCheck, HelpCircle, Cloud, AlertCircle, X, ShieldCheck } from 'lucide-react';
 
-// Default empty array as we are deleting default trainees: 김우석, 박다영, 최윤호
-const DEFAULT_CLIENTS: Client[] = [];
-const DEFAULT_PURDUE_TESTS: PurdueTest[] = [];
-const DEFAULT_ERS_TESTS: ERSTest[] = [];
+const INITIAL_BLANK_RESUME: ResumeData = {
+  personal: {
+    name: '',
+    birthDate: '',
+    gender: '남성',
+    phone: '',
+    emergencyPhone: '',
+    address: '',
+    disabilityType: '',
+    photoUrl: null,
+    photoUploadedAt: null,
+  },
+  jobGoal: {
+    desiredJob: '',
+    workSchedule: '주 5일 (오전 근무)',
+    startDate: '즉시 가능',
+  },
+  education: {
+    schoolName: '',
+    graduationStatus: '졸업',
+    period: '',
+  },
+  experiences: [],
+  strength: {
+    tags: ['⏰ 시간을 잘 지켜요', '😊 인사성이 밝고 친절해요'],
+    myStory: '',
+  },
+  accommodations: {
+    supportNeeded: '',
+    hobbies: '',
+  },
+  templateStyle: 'standard',
+};
 
+const LOCAL_STORAGE_KEY = 'easy_resume_builder_data_v1';
+const ACTIVE_RESUME_ID_KEY = 'easy_resume_active_cloud_id';
 
 export default function App() {
-  // Initialization of states from LocalStorage or Fallbacks
-  const [clients, setClients] = useState<Client[]>(() => {
-    const saved = localStorage.getItem('rehab_clients');
-    const parsed: Client[] = saved ? JSON.parse(saved) : DEFAULT_CLIENTS;
-    // Filter out 김우석, 박다영, 최윤호 to delete them
-    return parsed.filter(c => c.name !== '김우석' && c.name !== '박다영' && c.name !== '최윤호');
-  });
-
-  const [purdueTests, setPurdueTests] = useState<PurdueTest[]>(() => {
-    const isCleared = localStorage.getItem('rehab_purdue_tests_cleared_v4');
-    if (!isCleared) {
-      localStorage.setItem('rehab_purdue_tests_cleared_v4', 'true');
-      localStorage.setItem('rehab_purdue_tests', JSON.stringify([]));
-      return [];
+  const [resumeData, setResumeData] = useState<ResumeData>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (saved) {
+        const parsed: ResumeData = JSON.parse(saved);
+        // Check 1-week photo retention on load
+        if (parsed.personal?.photoUrl && isPhotoExpired(parsed.personal.photoUploadedAt)) {
+          parsed.personal.photoUrl = null;
+          parsed.personal.photoUploadedAt = null;
+        }
+        return parsed;
+      }
+      return SAMPLE_RESUME_DATA;
+    } catch {
+      return SAMPLE_RESUME_DATA;
     }
-    const saved = localStorage.getItem('rehab_purdue_tests');
-    const parsed: PurdueTest[] = saved ? JSON.parse(saved) : DEFAULT_PURDUE_TESTS;
-    // Filter out associated mock tests
-    return parsed.filter(t => t.clientId !== 'client_1' && t.clientId !== 'client_2' && t.clientId !== 'client_3');
   });
 
-  const [ersTests, setErsTests] = useState<ERSTest[]>(() => {
-    const isCleared = localStorage.getItem('rehab_ers_tests_cleared_v4');
-    if (!isCleared) {
-      localStorage.setItem('rehab_ers_tests_cleared_v4', 'true');
-      localStorage.setItem('rehab_ers_tests', JSON.stringify([]));
-      return [];
-    }
-    const saved = localStorage.getItem('rehab_ers_tests');
-    const parsed: ERSTest[] = saved ? JSON.parse(saved) : DEFAULT_ERS_TESTS;
-    // Filter out associated mock tests
-    return parsed.filter(t => t.clientId !== 'client_1' && t.clientId !== 'client_2' && t.clientId !== 'client_3');
+  const [activeTab, setActiveTab] = useState<'wizard' | 'preview'>('wizard');
+  const [fontSize, setFontSize] = useState<AccessibilityLevel>('normal');
+  const [highContrast, setHighContrast] = useState<boolean>(false);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+
+  // Cloud & Firebase State
+  const [user, setUser] = useState<User | null>(auth.currentUser);
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState<boolean>(false);
+  const [activeResumeId, setActiveResumeId] = useState<string | null>(() => {
+    return localStorage.getItem(ACTIVE_RESUME_ID_KEY) || null;
   });
+  const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' } | null>(null);
 
-  const [basicAcademicTests, setBasicAcademicTests] = useState<BasicAcademicTest[]>(() => {
-    const saved = localStorage.getItem('rehab_academic_tests');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [iwpPlans, setIwpPlans] = useState<IndividualizedServicePlan[]>(() => {
-    const saved = localStorage.getItem('rehab_iwp_plans');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [pictureInterestPdfs, setPictureInterestPdfs] = useState<PictureInterestPDF[]>([]);
-
-  // Load Picture Interest PDFs from IndexedDB / Storage on startup
+  // Initial connection test & Auth listener & Weekly Photo Cleanup check
   useEffect(() => {
-    loadPictureInterestPdfs().then((loaded) => {
-      if (loaded && loaded.length > 0) {
-        setPictureInterestPdfs(loaded);
+    testConnection();
+
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Automatically scan and clean up any photos older than 1 week in Firestore
+        fetchUserResumes(currentUser.uid)
+          .then(({ cleanedPhotosCount }) => {
+            if (cleanedPhotosCount > 0) {
+              setNotification({
+                message: `개인정보 보호 정책에 따라 1주일이 경과한 사진 파일 ${cleanedPhotosCount}건이 클라우드에서 안전하게 자동 정리되었습니다.`,
+                type: 'info',
+              });
+            }
+          })
+          .catch((err) => {
+            console.warn('Auto photo cleanup check error:', err);
+          });
       }
     });
-  }, []);
 
-  const [selectedClient, setSelectedClient] = useState<Client | null>(() => {
-    const saved = localStorage.getItem('rehab_clients');
-    const parsed: Client[] = saved ? JSON.parse(saved) : DEFAULT_CLIENTS;
-    const filtered = parsed.filter(c => c.name !== '김우석' && c.name !== '박다영' && c.name !== '최윤호');
-    return filtered.length > 0 ? filtered[0] : null;
-  });
+    // Check if the current resume photo has expired (1 week)
+    if (resumeData.personal.photoUrl && isPhotoExpired(resumeData.personal.photoUploadedAt)) {
+      setResumeData((prev) => ({
+        ...prev,
+        personal: {
+          ...prev.personal,
+          photoUrl: null,
+          photoUploadedAt: null,
+        },
+      }));
+      setNotification({
+        message: '등록된 증명사진이 보관 기한(1주일)을 경과하여 안전하게 자동 제거되었습니다.',
+        type: 'info',
+      });
+    }
 
-  // Navigation Routing States
-  // 'clients' | 'workspace' | 'purdue_form' | 'ers_form' | 'purdue_report' | 'ers_report' | 'situation_eval' | 'basic_academic_form' | 'basic_academic_report' | 'semester_eval'
-  const [activeRoute, setActiveRoute] = useState<'clients' | 'workspace' | 'purdue_form' | 'ers_form' | 'purdue_report' | 'ers_report' | 'situation_eval' | 'basic_academic_form' | 'basic_academic_report' | 'semester_eval'>('clients');
-  const [viewingPurdueTest, setViewingPurdueTest] = useState<PurdueTest | null>(null);
-  const [viewingErsTest, setViewingErsTest] = useState<ERSTest | null>(null);
-  const [viewingAcademicTest, setViewingAcademicTest] = useState<BasicAcademicTest | null>(null);
-
-  // Sync to database LocalStorage
-  useEffect(() => {
-    localStorage.setItem('rehab_clients', JSON.stringify(clients));
-  }, [clients]);
-
-  useEffect(() => {
-    localStorage.setItem('rehab_purdue_tests', JSON.stringify(purdueTests));
-  }, [purdueTests]);
-
-  useEffect(() => {
-    localStorage.setItem('rehab_ers_tests', JSON.stringify(ersTests));
-  }, [ersTests]);
-
-  useEffect(() => {
-    localStorage.setItem('rehab_academic_tests', JSON.stringify(basicAcademicTests));
-  }, [basicAcademicTests]);
-
-  useEffect(() => {
-    localStorage.setItem('rehab_iwp_plans', JSON.stringify(iwpPlans));
-  }, [iwpPlans]);
-
-  useEffect(() => {
-    savePictureInterestPdfs(pictureInterestPdfs);
-  }, [pictureInterestPdfs]);
-
-
-  // Firebase Auth & Cloud Sync States
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
-  const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
-  const [isManualSyncing, setIsManualSyncing] = useState(false);
-
-  // Connection check on boot per Skill Guidelines
-  useEffect(() => {
-    testFirestoreConnection().then(connected => {
-      setIsFirebaseConnected(connected);
-    });
-  }, []);
-
-  // Listen to Auth State
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setIsAuthLoading(false);
-    });
     return () => unsubscribe();
   }, []);
 
-  // Real-time Firestore Sync when Authenticated
+  // Sync activeResumeId with localStorage
   useEffect(() => {
-    if (!currentUser) return;
-
-    setSyncStatus('syncing');
-
-    const unsubClients = subscribeToClients((remoteClients) => {
-      if (remoteClients && remoteClients.length > 0) {
-        setClients(remoteClients);
-      }
-      setSyncStatus('synced');
-    });
-
-    const unsubPurdue = subscribeToPurdueTests((remote) => {
-      if (remote && remote.length > 0) {
-        setPurdueTests(remote);
-      }
-    });
-
-    const unsubErs = subscribeToErsTests((remote) => {
-      if (remote && remote.length > 0) {
-        setErsTests(remote);
-      }
-    });
-
-    const unsubAcademic = subscribeToAcademicTests((remote) => {
-      if (remote && remote.length > 0) {
-        setBasicAcademicTests(remote);
-      }
-    });
-
-    const unsubIwp = subscribeToIwpPlans((remote) => {
-      if (remote && remote.length > 0) {
-        setIwpPlans(remote);
-      }
-    });
-
-    return () => {
-      unsubClients();
-      unsubPurdue();
-      unsubErs();
-      unsubAcademic();
-      unsubIwp();
-    };
-  }, [currentUser]);
-
-  // Manual one-click full backup to Firebase Cloud
-  const handleManualSyncToCloud = async () => {
-    if (!currentUser) {
-      try {
-        await signInWithGoogle();
-      } catch (err) {
-        return;
-      }
-    }
-    setIsManualSyncing(true);
-    setSyncStatus('syncing');
-    try {
-      // Push all current clients
-      for (const client of clients) {
-        await saveClientToFirestore(client);
-      }
-      // Push all purdue tests
-      for (const test of purdueTests) {
-        await savePurdueTestToFirestore(test);
-      }
-      // Push all ers tests
-      for (const test of ersTests) {
-        await saveErsTestToFirestore(test);
-      }
-      // Push academic tests
-      for (const test of basicAcademicTests) {
-        await saveAcademicTestToFirestore(test);
-      }
-      // Push iwp plans
-      for (const plan of iwpPlans) {
-        await saveIwpPlanToFirestore(plan);
-      }
-      setSyncStatus('synced');
-    } catch (err) {
-      console.error('Manual sync failed:', err);
-      setSyncStatus('error');
-    } finally {
-      setIsManualSyncing(false);
-    }
-  };
-
-  // Client Handlers
-  const handleAddClient = (newClientData: Omit<Client, 'id' | 'createdAt'>) => {
-    const newClient: Client = {
-      ...newClientData,
-      id: 'client_' + Math.random().toString(36).substr(2, 9),
-      createdAt: new Date().toISOString()
-    };
-    setClients(prev => [newClient, ...prev]);
-    setSelectedClient(newClient);
-    setActiveRoute('workspace');
-
-    // Cloud Firestore Sync
-    if (currentUser) {
-      saveClientToFirestore(newClient).catch(console.error);
-    }
-  };
-
-  const handleUpdateClient = (updatedClient: Client) => {
-    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
-    setSelectedClient(updatedClient);
-
-    // Cloud Firestore Sync
-    if (currentUser) {
-      saveClientToFirestore(updatedClient).catch(console.error);
-    }
-  };
-
-  const handleDeleteClient = (id: string) => {
-    setClients(prev => prev.filter(c => c.id !== id));
-    // Cascade delete exams
-    setPurdueTests(prev => prev.filter(test => test.clientId !== id));
-    setErsTests(prev => prev.filter(test => test.clientId !== id));
-    setIwpPlans(prev => prev.filter(plan => plan.clientId !== id));
-    
-    // Select another client or fallback to empty
-    const remaining = clients.filter(c => c.id !== id);
-    if (remaining.length > 0) {
-      setSelectedClient(remaining[0]);
+    if (activeResumeId) {
+      localStorage.setItem(ACTIVE_RESUME_ID_KEY, activeResumeId);
     } else {
-      setSelectedClient(null);
+      localStorage.removeItem(ACTIVE_RESUME_ID_KEY);
     }
-    
-    // Move back to main roster directory page
-    setActiveRoute('clients');
+  }, [activeResumeId]);
 
-    // Cloud Firestore Sync
-    if (currentUser) {
-      deleteClientFromFirestore(id).catch(console.error);
+  // Auto save to local storage
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(resumeData));
+    } catch (e) {
+      console.error('Failed to save to localStorage', e);
+    }
+  }, [resumeData]);
+
+  const handleFillSample = () => {
+    if (confirm('예시 이력서 내용으로 채우시겠습니까? 작성 중인 내용이 대체됩니다.')) {
+      setResumeData(SAMPLE_RESUME_DATA);
+      setActiveResumeId(null);
     }
   };
 
-  // IWP Plan Handlers
-  const handleSaveIWPPlan = (plan: IndividualizedServicePlan) => {
-    setIwpPlans(prev => {
-      const idx = prev.findIndex(p => p.id === plan.id);
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = plan;
-        return updated;
-      }
-      return [plan, ...prev];
+  const handleReset = () => {
+    if (confirm('이력서를 처음부터 다시 새로 작성하시겠습니까?')) {
+      setResumeData(INITIAL_BLANK_RESUME);
+      setActiveResumeId(null);
+      setActiveTab('wizard');
+    }
+  };
+
+  const handleLoadResumeFromCloud = (loadedData: ResumeData, resumeId?: string) => {
+    setResumeData(loadedData);
+    if (resumeId) {
+      setActiveResumeId(resumeId);
+    }
+    setNotification({
+      message: `'${loadedData.personal.name || '알기 쉬운'}' 이력서를 클라우드에서 불러왔습니다.`,
+      type: 'success',
     });
+  };
 
-    // Cloud Firestore Sync
-    if (currentUser) {
-      saveIwpPlanToFirestore(plan).catch(console.error);
+  const handleExportPdf = async () => {
+    setIsExportingPdf(true);
+    if (activeTab !== 'preview') {
+      setActiveTab('preview');
+      await new Promise((res) => setTimeout(res, 300));
     }
+
+    const fileName = `${resumeData.personal.name || '알기쉬운'}_이력서.pdf`;
+    await exportResumeToPdf('resume-pdf-content', fileName);
+    setIsExportingPdf(false);
   };
-
-  const handleDeleteIWPPlan = (id: string) => {
-    setIwpPlans(prev => prev.filter(p => p.id !== id));
-
-    // Cloud Firestore Sync
-    if (currentUser) {
-      deleteIwpPlanFromFirestore(id).catch(console.error);
-    }
-  };
-
-  // Purdue Test Handlers
-  const handleSavePurdueTest = (newTest: Omit<PurdueTest, 'id' | 'clientId'>) => {
-    if (!selectedClient) return;
-    
-    const testWithId: PurdueTest = {
-      ...newTest,
-      id: 'purdue_' + Math.random().toString(36).substr(2, 9),
-      clientId: selectedClient.id
-    };
-
-    setPurdueTests(prev => [testWithId, ...prev]);
-    setViewingPurdueTest(testWithId);
-    setActiveRoute('purdue_report');
-
-    // Cloud Firestore Sync
-    if (currentUser) {
-      savePurdueTestToFirestore(testWithId).catch(console.error);
-    }
-  };
-
-  const handleDeletePurdueTest = (id: string) => {
-    setPurdueTests(prev => prev.filter(t => t.id !== id));
-
-    // Cloud Firestore Sync
-    if (currentUser) {
-      deletePurdueTestFromFirestore(id).catch(console.error);
-    }
-  };
-
-  // ERS Test Handlers
-  const handleSaveErsTest = (newTest: Omit<ERSTest, 'id' | 'clientId'>) => {
-    if (!selectedClient) return;
-
-    const testWithId: ERSTest = {
-      ...newTest,
-      id: 'ers_' + Math.random().toString(36).substr(2, 9),
-      clientId: selectedClient.id
-    };
-
-    setErsTests(prev => [testWithId, ...prev]);
-    setViewingErsTest(testWithId);
-    setActiveRoute('ers_report');
-
-    // Cloud Firestore Sync
-    if (currentUser) {
-      saveErsTestToFirestore(testWithId).catch(console.error);
-    }
-  };
-
-  const handleDeleteErsTest = (id: string) => {
-    setErsTests(prev => prev.filter(t => t.id !== id));
-
-    // Cloud Firestore Sync
-    if (currentUser) {
-      deleteErsTestFromFirestore(id).catch(console.error);
-    }
-  };
-
-  // Basic Academic Test Handlers
-  const handleSaveBasicAcademicTest = (newTest: BasicAcademicTest) => {
-    setBasicAcademicTests(prev => [newTest, ...prev]);
-    setViewingAcademicTest(newTest);
-    setActiveRoute('basic_academic_report');
-
-    // Cloud Firestore Sync
-    if (currentUser) {
-      saveAcademicTestToFirestore(newTest).catch(console.error);
-    }
-  };
-
-  const handleDeleteBasicAcademicTest = (id: string) => {
-    setBasicAcademicTests(prev => prev.filter(t => t.id !== id));
-
-    // Cloud Firestore Sync
-    if (currentUser) {
-      deleteAcademicTestFromFirestore(id).catch(console.error);
-    }
-  };
-
-  // Picture Interest PDF Handlers
-  const handleSavePictureInterestPdf = (newPdf: PictureInterestPDF) => {
-    setPictureInterestPdfs(prev => [newPdf, ...prev]);
-  };
-
-  const handleDeletePictureInterestPdf = (id: string) => {
-    setPictureInterestPdfs(prev => prev.filter(p => p.id !== id));
-  };
-
-  // Filter exams for currently selected patient/client
-  const currentPurdueTests = purdueTests.filter(test => test.clientId === selectedClient?.id);
-  const currentErsTests = ersTests.filter(test => test.clientId === selectedClient?.id);
-  const currentAcademicTests = basicAcademicTests.filter(test => test.clientId === selectedClient?.id);
-
 
   return (
-    <div id="full-app-container" className="flex flex-col h-screen overflow-hidden bg-slate-50 text-slate-800">
+    <div className={`min-h-screen transition-colors ${
+      highContrast 
+        ? 'bg-black text-yellow-300' 
+        : 'bg-[#fdfcf9] text-[#3d3d3d]'
+    }`}>
       
-      {/* Top Banner Dashboard Title Bar */}
-      <header id="rehab-banner-header" className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white h-14 shrink-0 flex items-center justify-between px-6 shadow-md print:hidden">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
-            <Activity className="h-5 w-5 animate-pulse" />
-          </div>
-          <div>
-            <h1 className="font-extrabold text-sm tracking-tight flex items-center gap-2">
-              수원시장애인종합복지관 <span className="font-mono bg-white/10 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded">평가관리 허브</span>
-            </h1>
-            <p className="text-[10px] text-slate-300">직업적응훈련반 개별화시스템</p>
-          </div>
-        </div>
+      {/* Top Header Controls */}
+      <Header
+        fontSize={fontSize}
+        setFontSize={setFontSize}
+        highContrast={highContrast}
+        setHighContrast={setHighContrast}
+        isSpeaking={isSpeaking}
+        onStopSpeech={stopSpeech}
+        onFillSample={handleFillSample}
+        onReset={handleReset}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onExportPdf={handleExportPdf}
+        isExportingPdf={isExportingPdf}
+        onOpenCloudModal={() => setIsCloudModalOpen(true)}
+        isLoggedIn={Boolean(user)}
+        userName={user?.displayName}
+      />
 
-        {/* Global Navigation Tabs (Directory Roster vs. Selected Workspace) */}
-        <nav className="flex items-center gap-2">
-          <button
-            id="nav-to-clients"
-            onClick={() => setActiveRoute('clients')}
-            className={`px-4 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 border ${
-              activeRoute === 'clients'
-                ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm'
-                : 'bg-white/5 border-transparent hover:bg-white/10 text-slate-300 hover:text-white'
-            }`}
-          >
-            <ClipboardList className="h-3.5 w-3.5" />
-            능력개발지원팀 직업적응훈련반
-          </button>
-          
-          <button
-            id="nav-to-workspace"
-            onClick={() => {
-              if (selectedClient) {
-                setActiveRoute('workspace');
-              } else {
-                alert('명단(디렉토리)에서 대상자를 먼저 선택해주십시오.');
-              }
-            }}
-            disabled={!selectedClient}
-            className={`px-4 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 border ${
-              !selectedClient
-                ? 'opacity-40 cursor-not-allowed border-transparent text-slate-500 bg-transparent'
-                : activeRoute === 'workspace'
-                ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm'
-                : 'bg-white/5 border-transparent hover:bg-white/10 text-slate-300 hover:text-white'
-            }`}
-          >
-            <LayoutDashboard className="h-3.5 w-3.5" />
-            {selectedClient ? `${selectedClient.name} 훈련생 개별파일` : '훈련생 개별파일'}
-          </button>
-
-          <button
-            id="nav-to-situation-eval"
-            onClick={() => setActiveRoute('situation_eval')}
-            className={`px-4 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 border ${
-              activeRoute === 'situation_eval'
-                ? 'bg-amber-600 border-amber-500 text-white shadow-sm'
-                : 'bg-amber-500/20 border-amber-400/30 hover:bg-amber-500/30 text-amber-200'
-            }`}
-          >
-            <FileSpreadsheet className="h-3.5 w-3.5" />
-            신규 훈련생 상황평가
-          </button>
-
-          <button
-            id="nav-to-semester-eval"
-            onClick={() => setActiveRoute('semester_eval')}
-            className={`px-4 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 border ${
-              activeRoute === 'semester_eval'
-                ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
-                : 'bg-blue-500/20 border-blue-400/30 hover:bg-blue-500/30 text-blue-200'
-            }`}
-          >
-            <TrendingUp className="h-3.5 w-3.5" />
-            상·하반기 평가표
-          </button>
-        </nav>
-
-        {/* Firebase Authentication & Cloud Sync Widget */}
-        <div className="flex items-center gap-2">
-          {currentUser ? (
-            <div className="flex items-center gap-2 bg-slate-800/80 border border-slate-700/60 rounded-xl px-2.5 py-1 text-xs">
-              <span className="flex items-center gap-1.5 text-emerald-400 font-semibold text-[11px]">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                <CloudCheck className="h-3.5 w-3.5 text-emerald-400" />
-                <span>Firebase 연동됨</span>
-              </span>
-              <span className="text-slate-400 text-[10px] max-w-[130px] truncate" title={currentUser.email || ''}>
-                {currentUser.displayName || currentUser.email}
-              </span>
-              <button
-                onClick={handleManualSyncToCloud}
-                disabled={isManualSyncing}
-                title="현재 로컬/임시 데이터를 파이어베이스 클라우드로 전체 즉시 백업"
-                className="p-1 rounded-md bg-indigo-600/60 hover:bg-indigo-600 text-indigo-100 transition-all flex items-center gap-1 text-[10px] font-bold px-1.5"
-              >
-                <RefreshCw className={`h-3 w-3 ${isManualSyncing ? 'animate-spin' : ''}`} />
-                <span>백업</span>
-              </button>
-              <button
-                onClick={() => signOutUser()}
-                title="로그아웃"
-                className="p-1 rounded-md hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 transition-all"
-              >
-                <LogOut className="h-3 w-3" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => signInWithGoogle()}
-              className="px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-sm transition-all border border-indigo-400/30"
-              title="Google 계정으로 로그인하여 파이어베이스에 데이터를 실시간 동기화합니다."
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              <span>Google 로그인 (데이터 클라우드 연동)</span>
-            </button>
-          )}
-        </div>
-      </header>
-
-      {/* Main Workspace Body Layout */}
-      <div id="rehab-layout-grid" className="flex flex-1 overflow-hidden">
+      {/* Main Container */}
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         
-        {/* Central Pane / Sandbox workspace */}
-        <main id="main-content-flow" className="flex-1 flex flex-col overflow-hidden bg-white">
-          {activeRoute === 'clients' && (
-            <ClientManager
-              clients={clients}
-              purdueTests={purdueTests}
-              ersTests={ersTests}
-              onSelectClient={(c) => {
-                setSelectedClient(c);
-                setActiveRoute('workspace');
-              }}
-              onAddClient={handleAddClient}
-              onDeleteClient={handleDeleteClient}
-              onOpenSituationEval={() => setActiveRoute('situation_eval')}
-            />
-          )}
-
-          {activeRoute === 'situation_eval' && (
-            <div className="flex-1 overflow-y-auto bg-slate-100 p-4">
-              <SituationEvaluationManager
-                clients={clients}
-                selectedClient={selectedClient}
-                onSelectClient={(c) => setSelectedClient(c)}
-                onBack={() => setActiveRoute(selectedClient ? 'workspace' : 'clients')}
-              />
+        {/* Auto Photo-Removal / Notification Banner */}
+        {notification && (
+          <div className="mb-5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>{notification.message}</span>
             </div>
+            <button
+              onClick={() => setNotification(null)}
+              className="p-1 hover:bg-emerald-100 rounded-lg text-emerald-700 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Welcome Hero Banner with Cloud Integration Info */}
+        <div className={`mb-6 p-4 sm:p-5 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm ${
+          highContrast
+            ? 'bg-zinc-900 border-yellow-400 text-yellow-300'
+            : 'bg-[#7a8d7c] text-white border-[#647566]'
+        }`}>
+          <div className="flex items-center gap-3.5">
+            <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white">
+              <Heart className="w-7 h-7 fill-white/20" />
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-2 flex-wrap">
+                <span>쉬운 질문에 하나씩 답해보세요!</span>
+                {user ? (
+                  <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-semibold">
+                    ☁️ 파이어베이스 연동됨
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setIsCloudModalOpen(true)}
+                    className="text-[11px] bg-white/25 hover:bg-white/35 px-2 py-0.5 rounded-full font-bold transition flex items-center gap-1"
+                  >
+                    <Cloud className="w-3 h-3" />
+                    <span>클라우드 연동하기</span>
+                  </button>
+                )}
+              </h2>
+              <p className="text-xs sm:text-sm text-[#f0f2f0] font-medium mt-0.5">
+                복잡한 서식 없이 질문을 보며 작성하면 깔끔한 맞춤형 이력서가 완성됩니다.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            <button
+              onClick={() => setActiveTab('wizard')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm ${
+                activeTab === 'wizard'
+                  ? 'bg-white text-[#4a544b]'
+                  : 'bg-[#647566] hover:bg-[#536255] text-white'
+              }`}
+            >
+              1. 질문 응답
+            </button>
+            <button
+              onClick={() => setActiveTab('preview')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm ${
+                activeTab === 'preview'
+                  ? 'bg-white text-[#4a544b]'
+                  : 'bg-[#647566] hover:bg-[#536255] text-white'
+              }`}
+            >
+              2. 이력서 미리보기
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content View Switcher */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'wizard' ? (
+            <motion.div
+              key="wizard"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <QuestionWizard
+                data={resumeData}
+                onChange={setResumeData}
+                fontSize={fontSize}
+                highContrast={highContrast}
+                onFinish={() => setActiveTab('preview')}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="preview"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ResumePreview
+                data={resumeData}
+                onEdit={() => setActiveTab('wizard')}
+                onExportPdf={handleExportPdf}
+                isExportingPdf={isExportingPdf}
+                highContrast={highContrast}
+              />
+            </motion.div>
           )}
+        </AnimatePresence>
 
-          {activeRoute === 'semester_eval' && (
-            <SemesterEvaluationPage
-              clients={clients}
-              selectedClient={selectedClient}
-              onSelectClient={(c) => setSelectedClient(c)}
-              iwpPlans={iwpPlans}
-              onSaveIWPPlan={handleSaveIWPPlan}
-              onBack={() => setActiveRoute(selectedClient ? 'workspace' : 'clients')}
-            />
-          )}
+      </main>
 
-          {activeRoute !== 'clients' && activeRoute !== 'situation_eval' && activeRoute !== 'semester_eval' && (
-            selectedClient ? (
-              <>
-                {activeRoute === 'workspace' && (
-                  <ClientWorkspace
-                    client={selectedClient}
-                    onUpdateClient={handleUpdateClient}
-                    onDeleteClient={handleDeleteClient}
-                    purdueTests={currentPurdueTests}
-                    ersTests={currentErsTests}
-                    basicAcademicTests={currentAcademicTests}
-                    pictureInterestPdfs={pictureInterestPdfs}
-                    iwpPlans={iwpPlans}
-                    onSaveIWPPlan={handleSaveIWPPlan}
-                    onDeleteIWPPlan={handleDeleteIWPPlan}
-                    onSavePictureInterestPdf={handleSavePictureInterestPdf}
-                    onDeletePictureInterestPdf={handleDeletePictureInterestPdf}
-                    onStartPurdueTest={() => setActiveRoute('purdue_form')}
-                    onStartErsTest={() => setActiveRoute('ers_form')}
-                    onStartBasicAcademicTest={() => setActiveRoute('basic_academic_form')}
-                    onOpenSituationEval={() => setActiveRoute('situation_eval')}
-                    onViewPurdueResult={(test) => {
-                      setViewingPurdueTest(test);
-                      setActiveRoute('purdue_report');
-                    }}
-                    onViewErsResult={(test) => {
-                      setViewingErsTest(test);
-                      setActiveRoute('ers_report');
-                    }}
-                    onViewBasicAcademicResult={(test) => {
-                      setViewingAcademicTest(test);
-                      setActiveRoute('basic_academic_report');
-                    }}
-                    onDeletePurdueTest={handleDeletePurdueTest}
-                    onDeleteErsTest={handleDeleteErsTest}
-                    onDeleteBasicAcademicTest={handleDeleteBasicAcademicTest}
-                  />
-                )}
+      {/* Cloud Sync & Firebase Storage Modal */}
+      <CloudSyncModal
+        isOpen={isCloudModalOpen}
+        onClose={() => setIsCloudModalOpen(false)}
+        currentResume={resumeData}
+        onLoadResume={handleLoadResumeFromCloud}
+        activeResumeId={activeResumeId}
+        setActiveResumeId={setActiveResumeId}
+        highContrast={highContrast}
+      />
 
-                {activeRoute === 'purdue_form' && (
-                  <div className="p-6 overflow-y-auto flex-1 bg-slate-50/20">
-                    <PurdueForm
-                      client={selectedClient}
-                      onSave={handleSavePurdueTest}
-                      onCancel={() => setActiveRoute('workspace')}
-                    />
-                  </div>
-                )}
-
-                {activeRoute === 'ers_form' && (
-                  <div className="p-6 overflow-y-auto flex-1 bg-slate-50/20">
-                    <ERSForm
-                      client={selectedClient}
-                      onSave={handleSaveErsTest}
-                      onCancel={() => setActiveRoute('workspace')}
-                    />
-                  </div>
-                )}
-
-                {activeRoute === 'basic_academic_form' && (
-                  <div className="p-6 overflow-y-auto flex-1 bg-slate-50/20">
-                    <BasicAcademicForm
-                      client={selectedClient}
-                      onSave={handleSaveBasicAcademicTest}
-                      onCancel={() => setActiveRoute('workspace')}
-                    />
-                  </div>
-                )}
-
-                {activeRoute === 'purdue_report' && viewingPurdueTest && (
-                  <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 print:bg-white print:p-0">
-                    <PurdueReport
-                      client={selectedClient}
-                      test={viewingPurdueTest}
-                      onBack={() => setActiveRoute('workspace')}
-                    />
-                  </div>
-                )}
-
-                {activeRoute === 'ers_report' && viewingErsTest && (
-                  <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 print:bg-white print:p-0">
-                    <ERSReport
-                      client={selectedClient}
-                      test={viewingErsTest}
-                      onBack={() => setActiveRoute('workspace')}
-                    />
-                  </div>
-                )}
-
-                {activeRoute === 'basic_academic_report' && viewingAcademicTest && (
-                  <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 print:bg-white print:p-0">
-                    <BasicAcademicReport
-                      client={selectedClient}
-                      test={viewingAcademicTest}
-                      onBack={() => setActiveRoute('workspace')}
-                    />
-                  </div>
-                )}
-
-              </>
-            ) : (
-              <div className="flex-1 flex flex-col justify-center items-center text-slate-400 p-8">
-                <ClipboardList className="h-12 w-12 text-slate-200 mb-3" />
-                <h3 className="font-bold text-slate-700 mb-1">선택된 평가 대상자가 없습니다.</h3>
-                <p className="text-xs text-center mb-4">전체 명단 관리에서 대상자를 먼저 선택하십시오.</p>
-                <button
-                  id="nav-to-clients-fallback"
-                  onClick={() => setActiveRoute('clients')}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
-                >
-                  명단 페이지로 이동
-                </button>
-              </div>
-            )
-          )}
-        </main>
-
-      </div>
+      {/* Footer */}
+      <footer className="mt-12 py-6 border-t border-slate-200 text-center text-xs text-slate-500">
+        <p className="font-semibold">
+          수원시장애인종합복지관 알기 쉬운 이력서 작성 프로그램
+        </p>
+        <p className="text-[11px] text-slate-400 mt-1">
+          작성하신 정보는 파이어베이스 클라우드 및 브라우저에 안전하게 보관되며, 사진 파일은 개인정보 보호 정책에 따라 1주일 후 자동으로 영구 삭제됩니다.
+        </p>
+      </footer>
     </div>
   );
 }
