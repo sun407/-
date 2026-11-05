@@ -19,7 +19,8 @@ import {
   Calendar, 
   Briefcase,
   Image as ImageIcon,
-  FileText
+  FileText,
+  QrCode
 } from 'lucide-react';
 import { 
   CloudResumeRecord, 
@@ -30,6 +31,7 @@ import {
   isPhotoExpired 
 } from '../firebase';
 import { AdminPrintModal } from './AdminPrintModal';
+import { QRCodeModal } from './QRCodeModal';
 
 interface AdminWorkspaceProps {
   adminEmail: string;
@@ -55,6 +57,7 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({
   const [selectedRecordForPrint, setSelectedRecordForPrint] = useState<CloudResumeRecord | null>(null);
   const [isPurgingPhotos, setIsPurgingPhotos] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -181,6 +184,15 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setIsQRModalOpen(true)}
+              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-2xs"
+              title="이 페이지의 접속 QR코드 및 안내 포스터 출력"
+            >
+              <QrCode className="w-4 h-4 text-emerald-700" />
+              <span>QR코드 안내 포스터</span>
+            </button>
+
             <button
               onClick={onCreateNewResume}
               className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-2xs"
@@ -474,6 +486,13 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({
         record={selectedRecordForPrint}
         onEditResume={onEditResumeInEditor}
         onRefreshData={loadData}
+        highContrast={highContrast}
+      />
+
+      {/* QR CODE POSTER MODAL */}
+      <QRCodeModal
+        isOpen={isQRModalOpen}
+        onClose={() => setIsQRModalOpen(false)}
         highContrast={highContrast}
       />
 

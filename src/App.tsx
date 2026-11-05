@@ -8,6 +8,7 @@ import { QuestionWizard } from './components/QuestionWizard';
 import { ResumePreview } from './components/ResumePreview';
 import { AdminWorkspace } from './components/AdminWorkspace';
 import { AdminLoginModal } from './components/AdminLoginModal';
+import { QRCodeModal } from './components/QRCodeModal';
 import { exportResumeToPdf, stopSpeech } from './utils/pdfExport';
 import { 
   auth, 
@@ -19,7 +20,7 @@ import {
   CloudResumeRecord,
   ADMIN_EMAILS
 } from './firebase';
-import { Heart, Sparkles, FileCheck, HelpCircle, AlertCircle, X, ShieldCheck, CheckCircle2, Save, ArrowLeft, Send } from 'lucide-react';
+import { Heart, Sparkles, FileCheck, HelpCircle, AlertCircle, X, ShieldCheck, CheckCircle2, Save, ArrowLeft, Send, QrCode } from 'lucide-react';
 
 const INITIAL_BLANK_RESUME: ResumeData = {
   personal: {
@@ -90,6 +91,7 @@ export default function App() {
     return sessionStorage.getItem(ADMIN_SESSION_KEY) || '';
   });
   const [editingAdminRecord, setEditingAdminRecord] = useState<CloudResumeRecord | null>(null);
+  const [isQRModalOpen, setIsQRModalOpen] = useState<boolean>(false);
 
   // General Notification Banner
   const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'alert' } | null>(null);
@@ -303,6 +305,7 @@ export default function App() {
         adminEmail={adminEmail}
         onSubmitResume={handleSubmitResume}
         isSubmitting={isSubmitting}
+        onOpenQR={() => setIsQRModalOpen(true)}
       />
 
       {/* Main Container */}
@@ -453,6 +456,13 @@ export default function App() {
         highContrast={highContrast}
       />
 
+      {/* QR Code Modal */}
+      <QRCodeModal
+        isOpen={isQRModalOpen}
+        onClose={() => setIsQRModalOpen(false)}
+        highContrast={highContrast}
+      />
+
       {/* Footer */}
       <footer className="mt-12 py-6 border-t border-slate-200 text-center text-xs text-slate-500">
         <p className="font-semibold">
@@ -461,7 +471,15 @@ export default function App() {
         <p className="text-[11px] text-slate-400 mt-1">
           일반 사용자는 이력서 작성, 인쇄(출력), PDF 저장이 가능하며, 등록된 증명사진은 1주일 후 자동으로 영구 삭제됩니다.
         </p>
-        <div className="mt-2">
+        <div className="mt-2.5 flex items-center justify-center gap-4 flex-wrap">
+          <button
+            onClick={() => setIsQRModalOpen(true)}
+            className="inline-flex items-center gap-1 text-[11px] text-emerald-800 hover:text-emerald-900 underline font-bold transition"
+          >
+            <QrCode className="w-3.5 h-3.5" />
+            <span>스마트폰 접속 QR코드 안내</span>
+          </button>
+          <span className="text-slate-300">•</span>
           <button
             onClick={handleOpenAdmin}
             className="text-[11px] text-slate-400 hover:text-emerald-700 underline font-medium transition"

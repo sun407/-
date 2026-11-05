@@ -12,7 +12,8 @@ import {
   Printer,
   ShieldCheck,
   Send,
-  Lock
+  Lock,
+  QrCode
 } from 'lucide-react';
 import { AccessibilityLevel } from '../types';
 
@@ -34,6 +35,7 @@ interface HeaderProps {
   adminEmail?: string | null;
   onSubmitResume: () => void;
   isSubmitting?: boolean;
+  onOpenQR: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -54,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
   adminEmail,
   onSubmitResume,
   isSubmitting = false,
+  onOpenQR,
 }) => {
   return (
     <header className={`sticky top-0 z-30 transition-colors border-b ${
@@ -225,6 +228,16 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{isSubmitting ? '제출 중...' : '복지관 제출'}</span>
+              </button>
+
+              {/* QR Code Modal Button */}
+              <button
+                onClick={onOpenQR}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition flex items-center gap-1 shadow-2xs"
+                title="스마트폰 접속용 QR코드 열기"
+              >
+                <QrCode className="w-3.5 h-3.5 text-emerald-700" />
+                <span>QR코드</span>
               </button>
 
               {/* Admin Mode Switcher Button */}
