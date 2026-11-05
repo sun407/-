@@ -23,9 +23,17 @@ service cloud.firestore {
       return resource.data;
     }
 
+    // Hardened Admin check with bootstrapped institutional email and DB lookup
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'sun@suwonrehab.or.kr' && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
     function isValidResume(data) {
       return data.userId is string &&
-             data.userId == request.auth.uid &&
+             data.userId.size() <= 128 &&
              data.title is string &&
              data.title.size() <= 200 &&
              (!('photoUploadedAt' in data) || data.photoUploadedAt == null || (data.photoUploadedAt is string && data.photoUploadedAt.size() <= 64));
@@ -36,21 +44,33 @@ service cloud.firestore {
       allow read: if true;
     }
 
+    // Admin authorization collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && (
+        isAdmin() || 
+        request.auth.uid == adminId || 
+        request.auth.token.email == 'sun@suwonrehab.or.kr'
+      );
+      allow write: if isAdmin();
+    }
+
+    // Resumes collection: Admin has full manage/edit/delete access; Applicants have own access or public submission
     match /resumes/{resumeId} {
-      allow get: if isSignedIn() && existing().userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() &&
-                       isValidId(resumeId) &&
-                       incoming().userId == request.auth.uid &&
-                       isValidResume(incoming());
-      allow update: if isSignedIn() &&
-                       isValidId(resumeId) &&
-                       existing().userId == request.auth.uid &&
-                       incoming().userId == request.auth.uid &&
-                       isValidResume(incoming());
-      allow delete: if isSignedIn() &&
-                       isValidId(resumeId) &&
-                       existing().userId == request.auth.uid;
+      allow get: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(resumeId) && isValidResume(incoming()) && (
+        isAdmin() || 
+        (isSignedIn() && incoming().userId == request.auth.uid) ||
+        incoming().userId == 'applicant_public'
+      );
+      allow update: if isValidId(resumeId) && isValidResume(incoming()) && (
+        isAdmin() || 
+        (isSignedIn() && existing().userId == request.auth.uid && incoming().userId == request.auth.uid)
+      );
+      allow delete: if isValidId(resumeId) && (
+        isAdmin() || 
+        (isSignedIn() && existing().userId == request.auth.uid)
+      );
     }
   }
 }

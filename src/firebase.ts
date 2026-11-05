@@ -34,6 +34,10 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+// Institutional Admin Constants
+export const ADMIN_EMAILS = ['sun@suwonrehab.or.kr'];
+export const ADMIN_PASSCODE = 'suwon2026'; // 수원시장애인종합복지관 실무자용 마스터 비밀번호
+
 // Connection test as required by Firebase integration guidelines
 export async function testConnection() {
   try {
@@ -100,6 +104,9 @@ export interface CloudResumeRecord {
   id: string;
   userId: string;
   title: string;
+  applicantName?: string;
+  status?: '대기' | '검토중' | '취업연계' | '완료';
+  adminNotes?: string;
   resumeData: ResumeData;
   photoUploadedAt?: string | null;
   createdAt: string;
@@ -117,6 +124,14 @@ export function isPhotoExpired(photoUploadedAt?: string | null): boolean {
 }
 
 /**
+ * Check if a user is an authorized administrator.
+ */
+export function isUserAdmin(user: User | null): boolean {
+  if (!user || !user.email) return false;
+  return ADMIN_EMAILS.some((adminEmail) => adminEmail.toLowerCase() === user.email?.toLowerCase());
+}
+
+/**
  * Save or update a resume in Firestore.
  * Automatically enforces 1-week photo retention policy.
  */
@@ -125,7 +140,9 @@ export async function saveResumeToFirestore(
   resumeId: string,
   title: string,
   resumeData: ResumeData,
-  existingPhotoUploadedAt?: string | null
+  existingPhotoUploadedAt?: string | null,
+  status: '대기' | '검토중' | '취업연계' | '완료' = '대기',
+  adminNotes: string = ''
 ): Promise<CloudResumeRecord> {
   const path = `resumes/${resumeId}`;
   const now = new Date().toISOString();
@@ -135,10 +152,8 @@ export async function saveResumeToFirestore(
   const clonedData: ResumeData = JSON.parse(JSON.stringify(resumeData));
 
   if (clonedData.personal.photoUrl) {
-    // If it has existing timestamp, check if expired (> 7 days)
     const timestampToCheck = existingPhotoUploadedAt || now;
     if (isPhotoExpired(timestampToCheck)) {
-      // Auto-remove expired photo
       clonedData.personal.photoUrl = null;
       photoUploadedAt = null;
     } else {
@@ -150,6 +165,9 @@ export async function saveResumeToFirestore(
     id: resumeId,
     userId,
     title: title || clonedData.personal.name || '알기 쉬운 이력서',
+    applicantName: clonedData.personal.name || '미입력',
+    status,
+    adminNotes,
     resumeData: clonedData,
     photoUploadedAt,
     createdAt: now,
@@ -160,7 +178,14 @@ export async function saveResumeToFirestore(
     const docRef = doc(db, 'resumes', resumeId);
     const existingSnap = await getDoc(docRef);
     if (existingSnap.exists()) {
-      record.createdAt = existingSnap.data().createdAt || now;
+      const prevData = existingSnap.data();
+      record.createdAt = prevData.createdAt || now;
+      if (!record.adminNotes && prevData.adminNotes) {
+        record.adminNotes = prevData.adminNotes;
+      }
+      if (prevData.status) {
+        record.status = status !== '대기' ? status : prevData.status;
+      }
     }
     await setDoc(docRef, record);
     return record;
@@ -170,8 +195,20 @@ export async function saveResumeToFirestore(
 }
 
 /**
- * Fetch all resumes for a user from Firestore.
- * Automatically inspects and removes photos older than 1 week (7 days).
+ * Submit resume from general access (applicant).
+ */
+export async function submitApplicantResume(
+  resumeData: ResumeData,
+  existingPhotoUploadedAt?: string | null
+): Promise<CloudResumeRecord> {
+  const resumeId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const userId = auth.currentUser ? auth.currentUser.uid : 'applicant_public';
+  const title = `${resumeData.personal.name || '신청자'} 님의 이력서`;
+  return saveResumeToFirestore(userId, resumeId, title, resumeData, existingPhotoUploadedAt, '대기', '');
+}
+
+/**
+ * Fetch all resumes for an individual user from Firestore.
  */
 export async function fetchUserResumes(userId: string): Promise<{
   resumes: CloudResumeRecord[];
@@ -191,14 +228,11 @@ export async function fetchUserResumes(userId: string): Promise<{
       const data = docSnap.data() as CloudResumeRecord;
       data.id = docSnap.id;
 
-      // Check if photo is expired (> 7 days / 1 week)
       if (data.resumeData?.personal?.photoUrl && isPhotoExpired(data.photoUploadedAt)) {
-        // Automatically clean photo from database
         data.resumeData.personal.photoUrl = null;
         data.photoUploadedAt = null;
         cleanedPhotosCount++;
 
-        // Async update in Firestore to persist photo cleanup
         try {
           await updateDoc(docSnap.ref, {
             'resumeData.personal.photoUrl': null,
@@ -213,7 +247,6 @@ export async function fetchUserResumes(userId: string): Promise<{
       resumes.push(data);
     }
 
-    // Sort by updatedAt descending
     resumes.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     return { resumes, cleanedPhotosCount };
   } catch (error) {
@@ -222,28 +255,91 @@ export async function fetchUserResumes(userId: string): Promise<{
 }
 
 /**
- * Delete a resume from Firestore.
+ * Admin: Fetch ALL resumes across all users and applicants.
+ * Automatically inspects and purges expired photos (> 7 days).
  */
-export async function deleteResumeFromFirestore(userId: string, resumeId: string): Promise<void> {
+export async function fetchAllResumesForAdmin(): Promise<{
+  resumes: CloudResumeRecord[];
+  cleanedPhotosCount: number;
+}> {
+  const collectionPath = 'resumes';
+  try {
+    const querySnapshot = await getDocs(collection(db, collectionPath));
+    const resumes: CloudResumeRecord[] = [];
+    let cleanedPhotosCount = 0;
+
+    for (const docSnap of querySnapshot.docs) {
+      const data = docSnap.data() as CloudResumeRecord;
+      data.id = docSnap.id;
+
+      // Auto-purge photo older than 1 week
+      if (data.resumeData?.personal?.photoUrl && isPhotoExpired(data.photoUploadedAt)) {
+        data.resumeData.personal.photoUrl = null;
+        data.photoUploadedAt = null;
+        cleanedPhotosCount++;
+
+        try {
+          await updateDoc(docSnap.ref, {
+            'resumeData.personal.photoUrl': null,
+            photoUploadedAt: null,
+            updatedAt: new Date().toISOString(),
+          });
+        } catch (err) {
+          console.warn('Admin auto photo cleanup failed for doc', docSnap.id, err);
+        }
+      }
+
+      resumes.push(data);
+    }
+
+    resumes.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return { resumes, cleanedPhotosCount };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, collectionPath);
+  }
+}
+
+/**
+ * Admin: Update status and consultation notes of a resume.
+ */
+export async function updateResumeAdminMeta(
+  resumeId: string,
+  updates: { status?: '대기' | '검토중' | '취업연계' | '완료'; adminNotes?: string }
+): Promise<void> {
   const path = `resumes/${resumeId}`;
   try {
     const docRef = doc(db, 'resumes', resumeId);
-    const snap = await getDoc(docRef);
-    if (snap.exists() && snap.data().userId === userId) {
-      await deleteDoc(docRef);
-    }
+    await updateDoc(docRef, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+/**
+ * Delete a resume from Firestore.
+ */
+export async function deleteResumeFromFirestore(_userId: string, resumeId: string): Promise<void> {
+  const path = `resumes/${resumeId}`;
+  try {
+    const docRef = doc(db, 'resumes', resumeId);
+    await deleteDoc(docRef);
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 
 /**
- * Manually trigger scanning and purging of expired photos (> 1 week) across all user resumes.
+ * Admin: Manually trigger scanning and purging of expired photos (> 1 week) across all resumes.
  */
-export async function purgeExpiredPhotosNow(userId: string): Promise<number> {
-  const { cleanedPhotosCount } = await fetchUserResumes(userId);
+export async function purgeAllExpiredPhotos(_userId?: string): Promise<number> {
+  const { cleanedPhotosCount } = await fetchAllResumesForAdmin();
   return cleanedPhotosCount;
 }
+
+export const purgeExpiredPhotosNow = purgeAllExpiredPhotos;
 
 // Auth Helper Functions
 export async function loginWithGoogle(): Promise<User | null> {

@@ -2,17 +2,33 @@
   "entities": {
     "resume": {
       "title": "User Resume",
-      "description": "Stores user resume information, personal details, and work experience",
+      "description": "Stores user resume information, personal details, work experience, and administrative status",
       "type": "object",
       "properties": {
         "userId": {
           "type": "string",
-          "description": "The UID of the user who owns this resume"
+          "description": "The UID of the user or applicant who owns this resume"
         },
         "title": {
           "type": "string",
           "description": "Title or applicant name of the resume",
           "maxLength": 200
+        },
+        "applicantName": {
+          "type": "string",
+          "description": "Name of the applicant",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "description": "Processing status managed by administrator (e.g. pending, in_progress, completed)",
+          "enum": ["대기", "검토중", "취업연계", "완료"],
+          "maxLength": 30
+        },
+        "adminNotes": {
+          "type": "string",
+          "description": "Internal consultation notes written by welfare center admin",
+          "maxLength": 2000
         },
         "resumeData": {
           "type": "object",
@@ -32,12 +48,37 @@
         }
       },
       "required": ["userId", "title"]
+    },
+    "admin": {
+      "title": "Administrator",
+      "description": "Welfare center administrator accounts",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Admin email address"
+        },
+        "role": {
+          "type": "string",
+          "description": "Admin authorization role",
+          "enum": ["super_admin", "staff"]
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["email", "role"]
     }
   },
   "firestore": {
     "/resumes/{resumeId}": {
       "schema": "resume",
-      "description": "Collection of resumes created by users"
+      "description": "Collection of resumes created by applicants and managed by administrators"
+    },
+    "/admins/{adminId}": {
+      "schema": "admin",
+      "description": "Collection of authorized welfare center administrators"
     }
   }
 }

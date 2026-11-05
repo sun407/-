@@ -9,7 +9,10 @@ import {
   VolumeX, 
   Download,
   BookOpen,
-  Cloud
+  Printer,
+  ShieldCheck,
+  Send,
+  Lock
 } from 'lucide-react';
 import { AccessibilityLevel } from '../types';
 
@@ -26,9 +29,11 @@ interface HeaderProps {
   setActiveTab: (tab: 'wizard' | 'preview') => void;
   onExportPdf: () => void;
   isExportingPdf: boolean;
-  onOpenCloudModal: () => void;
-  isLoggedIn: boolean;
-  userName?: string | null;
+  onOpenAdmin: () => void;
+  isAdmin: boolean;
+  adminEmail?: string | null;
+  onSubmitResume: () => void;
+  isSubmitting?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -44,9 +49,11 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   onExportPdf,
   isExportingPdf,
-  onOpenCloudModal,
-  isLoggedIn,
-  userName,
+  onOpenAdmin,
+  isAdmin,
+  adminEmail,
+  onSubmitResume,
+  isSubmitting = false,
 }) => {
   return (
     <header className={`sticky top-0 z-30 transition-colors border-b ${
@@ -109,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <BookOpen className="w-4 h-4" />
-                <span>질문 응답하기</span>
+                <span>1. 질문 작성</span>
               </button>
               <button
                 onClick={() => setActiveTab('preview')}
@@ -122,7 +129,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <FileText className="w-4 h-4" />
-                <span>이력서 보기</span>
+                <span>2. 이력서 보기</span>
               </button>
             </div>
 
@@ -169,29 +176,15 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
 
-            {/* Quick Actions */}
+            {/* Quick Actions (Writing, Printing, PDF Export, and Welfare Submission) */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              {/* Cloud Storage & Sync Button */}
-              <button
-                onClick={onOpenCloudModal}
-                className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold border transition flex items-center gap-1.5 shadow-xs ${
-                  isLoggedIn
-                    ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
-                    : 'bg-[#f8f7f2] text-[#4a544b] border-[#e8e6df] hover:bg-[#f0f2f0]'
-                }`}
-                title="파이어베이스 클라우드 이력서 보관함 열기"
-              >
-                <Cloud className={`w-4 h-4 ${isLoggedIn ? 'text-blue-600' : 'text-[#7a8d7c]'}`} />
-                <span>{isLoggedIn ? `${userName ? userName.slice(0, 4) : '클라우드'} 보관함` : '클라우드 보관함'}</span>
-              </button>
-
               <button
                 onClick={onFillSample}
-                className="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-[#f8f7f2] text-[#7a8d7c] border border-[#7a8d7c] hover:bg-[#f0f2f0] transition flex items-center gap-1 shadow-xs"
+                className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-[#f8f7f2] text-[#7a8d7c] border border-[#7a8d7c] hover:bg-[#f0f2f0] transition flex items-center gap-1 shadow-xs"
                 title="예시 작성본 자동으로 채우기"
               >
-                <Sparkles className="w-4 h-4 text-[#7a8d7c]" />
-                <span>예시 보기</span>
+                <Sparkles className="w-3.5 h-3.5 text-[#7a8d7c]" />
+                <span className="hidden sm:inline">예시 보기</span>
               </button>
 
               <button
@@ -199,17 +192,62 @@ export const Header: React.FC<HeaderProps> = ({
                 className="p-1.5 rounded-xl text-[#8e8d88] hover:text-[#3d3d3d] hover:bg-[#f8f7f2] border border-[#e8e6df] transition"
                 title="처음부터 다시 쓰기"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
 
-              {/* PDF Download Button */}
+              {/* General Print Button (출력) */}
+              <button
+                onClick={() => window.print()}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition flex items-center gap-1 shadow-2xs"
+                title="작성된 이력서 인쇄하기"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>출력 (인쇄)</span>
+              </button>
+
+              {/* General PDF Export Button (PDF 저장) */}
               <button
                 onClick={onExportPdf}
                 disabled={isExportingPdf}
-                className="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-[#7a8d7c] hover:bg-[#647566] text-white transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#7a8d7c] hover:bg-[#647566] text-white transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                title="작성된 이력서 PDF 파일로 저장"
               >
-                <Download className="w-4 h-4" />
-                <span>{isExportingPdf ? 'PDF 생성 중...' : 'PDF 다운로드'}</span>
+                <Download className="w-3.5 h-3.5" />
+                <span>{isExportingPdf ? 'PDF 생성 중...' : 'PDF 저장'}</span>
+              </button>
+
+              {/* Submit to Welfare Center (복지관 제출 및 데이터 저장) */}
+              <button
+                onClick={onSubmitResume}
+                disabled={isSubmitting}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                title="작성한 이력서를 복지관에 온라인으로 제출 및 안전 저장"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{isSubmitting ? '제출 중...' : '복지관 제출'}</span>
+              </button>
+
+              {/* Admin Mode Switcher Button */}
+              <button
+                onClick={onOpenAdmin}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 shadow-xs ${
+                  isAdmin
+                    ? 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
+                    : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                }`}
+                title="수원시장애인종합복지관 실무자 관리자 모드"
+              >
+                {isAdmin ? (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>관리자 화면</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>관리자 모드</span>
+                  </>
+                )}
               </button>
             </div>
 

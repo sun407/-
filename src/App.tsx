@@ -6,15 +6,20 @@ import { SAMPLE_RESUME_DATA } from './data/presets';
 import { Header } from './components/Header';
 import { QuestionWizard } from './components/QuestionWizard';
 import { ResumePreview } from './components/ResumePreview';
-import { CloudSyncModal } from './components/CloudSyncModal';
+import { AdminWorkspace } from './components/AdminWorkspace';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { exportResumeToPdf, stopSpeech } from './utils/pdfExport';
 import { 
   auth, 
   testConnection, 
-  fetchUserResumes, 
-  isPhotoExpired 
+  isPhotoExpired, 
+  isUserAdmin, 
+  submitApplicantResume,
+  saveResumeToFirestore,
+  CloudResumeRecord,
+  ADMIN_EMAILS
 } from './firebase';
-import { Heart, Sparkles, FileCheck, HelpCircle, Cloud, AlertCircle, X, ShieldCheck } from 'lucide-react';
+import { Heart, Sparkles, FileCheck, HelpCircle, AlertCircle, X, ShieldCheck, CheckCircle2, Save, ArrowLeft, Send } from 'lucide-react';
 
 const INITIAL_BLANK_RESUME: ResumeData = {
   personal: {
@@ -51,7 +56,7 @@ const INITIAL_BLANK_RESUME: ResumeData = {
 };
 
 const LOCAL_STORAGE_KEY = 'easy_resume_builder_data_v1';
-const ACTIVE_RESUME_ID_KEY = 'easy_resume_active_cloud_id';
+const ADMIN_SESSION_KEY = 'suwon_admin_auth_session';
 
 export default function App() {
   const [resumeData, setResumeData] = useState<ResumeData>(() => {
@@ -59,7 +64,6 @@ export default function App() {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         const parsed: ResumeData = JSON.parse(saved);
-        // Check 1-week photo retention on load
         if (parsed.personal?.photoUrl && isPhotoExpired(parsed.personal.photoUploadedAt)) {
           parsed.personal.photoUrl = null;
           parsed.personal.photoUploadedAt = null;
@@ -77,35 +81,27 @@ export default function App() {
   const [highContrast, setHighContrast] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Cloud & Firebase State
-  const [user, setUser] = useState<User | null>(auth.currentUser);
-  const [isCloudModalOpen, setIsCloudModalOpen] = useState<boolean>(false);
-  const [activeResumeId, setActiveResumeId] = useState<string | null>(() => {
-    return localStorage.getItem(ACTIVE_RESUME_ID_KEY) || null;
+  // Admin Mode States
+  const [isAdminModeActive, setIsAdminModeActive] = useState<boolean>(false);
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
+  const [adminEmail, setAdminEmail] = useState<string>(() => {
+    return sessionStorage.getItem(ADMIN_SESSION_KEY) || '';
   });
-  const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' } | null>(null);
+  const [editingAdminRecord, setEditingAdminRecord] = useState<CloudResumeRecord | null>(null);
 
-  // Initial connection test & Auth listener & Weekly Photo Cleanup check
+  // General Notification Banner
+  const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'alert' } | null>(null);
+
+  // Firebase Auth listener
   useEffect(() => {
     testConnection();
 
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        // Automatically scan and clean up any photos older than 1 week in Firestore
-        fetchUserResumes(currentUser.uid)
-          .then(({ cleanedPhotosCount }) => {
-            if (cleanedPhotosCount > 0) {
-              setNotification({
-                message: `개인정보 보호 정책에 따라 1주일이 경과한 사진 파일 ${cleanedPhotosCount}건이 클라우드에서 안전하게 자동 정리되었습니다.`,
-                type: 'info',
-              });
-            }
-          })
-          .catch((err) => {
-            console.warn('Auto photo cleanup check error:', err);
-          });
+      if (currentUser && isUserAdmin(currentUser)) {
+        setAdminEmail(currentUser.email || ADMIN_EMAILS[0]);
+        sessionStorage.setItem(ADMIN_SESSION_KEY, currentUser.email || ADMIN_EMAILS[0]);
       }
     });
 
@@ -128,16 +124,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Sync activeResumeId with localStorage
-  useEffect(() => {
-    if (activeResumeId) {
-      localStorage.setItem(ACTIVE_RESUME_ID_KEY, activeResumeId);
-    } else {
-      localStorage.removeItem(ACTIVE_RESUME_ID_KEY);
-    }
-  }, [activeResumeId]);
-
-  // Auto save to local storage
+  // Auto save to local storage (only in general editing mode)
   useEffect(() => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(resumeData));
@@ -146,32 +133,82 @@ export default function App() {
     }
   }, [resumeData]);
 
+  const isAdminAuthenticated = Boolean(adminEmail);
+
+  // Handlers
+  const handleOpenAdmin = () => {
+    if (isAdminAuthenticated) {
+      setIsAdminModeActive(true);
+    } else {
+      setIsAdminLoginModalOpen(true);
+    }
+  };
+
+  const handleAdminLoginSuccess = (email: string) => {
+    setAdminEmail(email);
+    sessionStorage.setItem(ADMIN_SESSION_KEY, email);
+    setIsAdminModeActive(true);
+    setNotification({
+      message: `관리자 모드로 접속했습니다. (${email})`,
+      type: 'success',
+    });
+  };
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    setAdminEmail('');
+    setIsAdminModeActive(false);
+    setEditingAdminRecord(null);
+    setNotification({
+      message: '관리자 모드에서 로그아웃 되었습니다.',
+      type: 'info',
+    });
+  };
+
   const handleFillSample = () => {
     if (confirm('예시 이력서 내용으로 채우시겠습니까? 작성 중인 내용이 대체됩니다.')) {
       setResumeData(SAMPLE_RESUME_DATA);
-      setActiveResumeId(null);
+      setEditingAdminRecord(null);
     }
   };
 
   const handleReset = () => {
     if (confirm('이력서를 처음부터 다시 새로 작성하시겠습니까?')) {
       setResumeData(INITIAL_BLANK_RESUME);
-      setActiveResumeId(null);
+      setEditingAdminRecord(null);
       setActiveTab('wizard');
     }
   };
 
-  const handleLoadResumeFromCloud = (loadedData: ResumeData, resumeId?: string) => {
-    setResumeData(loadedData);
-    if (resumeId) {
-      setActiveResumeId(resumeId);
+  // General Access: Submit to Welfare Center
+  const handleSubmitResume = async () => {
+    if (!resumeData.personal.name) {
+      alert('신청자 성명을 입력한 후 복지관에 제출해 주세요.');
+      setActiveTab('wizard');
+      return;
     }
-    setNotification({
-      message: `'${loadedData.personal.name || '알기 쉬운'}' 이력서를 클라우드에서 불러왔습니다.`,
-      type: 'success',
-    });
+
+    if (!confirm(`'${resumeData.personal.name}' 님의 이력서를 수원시장애인종합복지관에 온라인으로 제출하시겠습니까?`)) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await submitApplicantResume(resumeData, resumeData.personal.photoUploadedAt);
+      setNotification({
+        message: `🎉 '${resumeData.personal.name}' 님의 이력서가 수원시장애인종합복지관에 안전하게 제출되었습니다! 담당 직원이 확인 후 연락드립니다.`,
+        type: 'success',
+      });
+      alert('이력서가 성공적으로 복지관에 제출되었습니다. 담당 선생님이 내용을 검토한 후 연락을 드립니다.');
+    } catch (err) {
+      console.error(err);
+      alert('제출 중 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  // General Access: Export PDF
   const handleExportPdf = async () => {
     setIsExportingPdf(true);
     if (activeTab !== 'preview') {
@@ -184,6 +221,62 @@ export default function App() {
     setIsExportingPdf(false);
   };
 
+  // Admin Handler: Edit Resume in Editor
+  const handleEditResumeInEditor = (record: CloudResumeRecord) => {
+    setResumeData(record.resumeData);
+    setEditingAdminRecord(record);
+    setIsAdminModeActive(false);
+    setActiveTab('wizard');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Admin Handler: Create New Resume
+  const handleCreateNewResume = () => {
+    setResumeData(INITIAL_BLANK_RESUME);
+    setEditingAdminRecord(null);
+    setIsAdminModeActive(false);
+    setActiveTab('wizard');
+  };
+
+  // Admin Handler: Save changes back to Firestore
+  const handleSaveAdminEdits = async () => {
+    if (!editingAdminRecord) return;
+    try {
+      await saveResumeToFirestore(
+        editingAdminRecord.userId,
+        editingAdminRecord.id,
+        editingAdminRecord.title,
+        resumeData,
+        editingAdminRecord.photoUploadedAt,
+        editingAdminRecord.status,
+        editingAdminRecord.adminNotes
+      );
+      setNotification({
+        message: `'${resumeData.personal.name || '이력서'}' 내용 수정이 클라우드에 안전하게 저장되었습니다.`,
+        type: 'success',
+      });
+      alert('이력서 수정 사항이 관리자 데이터베이스에 성공적으로 저장되었습니다.');
+    } catch (err) {
+      console.error(err);
+      alert('수정 내용 저장 중 오류가 발생했습니다.');
+    }
+  };
+
+  // IF ADMIN WORKSPACE IS ACTIVE:
+  if (isAdminModeActive && isAdminAuthenticated) {
+    return (
+      <AdminWorkspace
+        adminEmail={adminEmail}
+        onExitAdminMode={() => setIsAdminModeActive(false)}
+        onLogout={handleAdminLogout}
+        onEditResumeInEditor={handleEditResumeInEditor}
+        onCreateNewResume={handleCreateNewResume}
+        highContrast={highContrast}
+      />
+    );
+  }
+
+  // GENERAL ACCESS VIEW (Writing, Previewing, Printing, PDF Exporting, and Submitting)
   return (
     <div className={`min-h-screen transition-colors ${
       highContrast 
@@ -205,19 +298,59 @@ export default function App() {
         setActiveTab={setActiveTab}
         onExportPdf={handleExportPdf}
         isExportingPdf={isExportingPdf}
-        onOpenCloudModal={() => setIsCloudModalOpen(true)}
-        isLoggedIn={Boolean(user)}
-        userName={user?.displayName}
+        onOpenAdmin={handleOpenAdmin}
+        isAdmin={isAdminAuthenticated}
+        adminEmail={adminEmail}
+        onSubmitResume={handleSubmitResume}
+        isSubmitting={isSubmitting}
       />
 
       {/* Main Container */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         
-        {/* Auto Photo-Removal / Notification Banner */}
+        {/* Admin Editing Banner (Displayed only when an admin is currently modifying an applicant's resume) */}
+        {editingAdminRecord && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-200 text-amber-900 rounded-xl">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-bold text-sm">
+                  🏢 관리자 수정 모드: <span className="underline decoration-2">{editingAdminRecord.resumeData.personal.name || editingAdminRecord.title}</span> 님의 이력서를 편집 중입니다.
+                </p>
+                <p className="text-xs text-amber-700">
+                  수정한 내용은 아래 '수정사항 저장' 버튼을 누르면 관리자 데이터베이스에 즉시 반영됩니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={handleSaveAdminEdits}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-sm"
+              >
+                <Save className="w-4 h-4" />
+                <span>수정사항 저장</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAdminModeActive(true)}
+                className="px-3.5 py-2 bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1 shadow-2xs"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>관리자 목록</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* General Notification Banner */}
         {notification && (
           <div className="mb-5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <span>{notification.message}</span>
             </div>
             <button
@@ -229,7 +362,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Welcome Hero Banner with Cloud Integration Info */}
+        {/* Welcome Hero Banner (Friendly, Accessible Natural Tones) */}
         <div className={`mb-6 p-4 sm:p-5 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm ${
           highContrast
             ? 'bg-zinc-900 border-yellow-400 text-yellow-300'
@@ -240,21 +373,8 @@ export default function App() {
               <Heart className="w-7 h-7 fill-white/20" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-2 flex-wrap">
-                <span>쉬운 질문에 하나씩 답해보세요!</span>
-                {user ? (
-                  <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-semibold">
-                    ☁️ 파이어베이스 연동됨
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => setIsCloudModalOpen(true)}
-                    className="text-[11px] bg-white/25 hover:bg-white/35 px-2 py-0.5 rounded-full font-bold transition flex items-center gap-1"
-                  >
-                    <Cloud className="w-3 h-3" />
-                    <span>클라우드 연동하기</span>
-                  </button>
-                )}
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight">
+                쉬운 질문에 하나씩 답해보세요!
               </h2>
               <p className="text-xs sm:text-sm text-[#f0f2f0] font-medium mt-0.5">
                 복잡한 서식 없이 질문을 보며 작성하면 깔끔한 맞춤형 이력서가 완성됩니다.
@@ -271,7 +391,7 @@ export default function App() {
                   : 'bg-[#647566] hover:bg-[#536255] text-white'
               }`}
             >
-              1. 질문 응답
+              1. 질문 작성
             </button>
             <button
               onClick={() => setActiveTab('preview')}
@@ -325,14 +445,11 @@ export default function App() {
 
       </main>
 
-      {/* Cloud Sync & Firebase Storage Modal */}
-      <CloudSyncModal
-        isOpen={isCloudModalOpen}
-        onClose={() => setIsCloudModalOpen(false)}
-        currentResume={resumeData}
-        onLoadResume={handleLoadResumeFromCloud}
-        activeResumeId={activeResumeId}
-        setActiveResumeId={setActiveResumeId}
+      {/* Admin Login Modal */}
+      <AdminLoginModal
+        isOpen={isAdminLoginModalOpen}
+        onClose={() => setIsAdminLoginModalOpen(false)}
+        onSuccess={handleAdminLoginSuccess}
         highContrast={highContrast}
       />
 
@@ -342,8 +459,16 @@ export default function App() {
           수원시장애인종합복지관 알기 쉬운 이력서 작성 프로그램
         </p>
         <p className="text-[11px] text-slate-400 mt-1">
-          작성하신 정보는 파이어베이스 클라우드 및 브라우저에 안전하게 보관되며, 사진 파일은 개인정보 보호 정책에 따라 1주일 후 자동으로 영구 삭제됩니다.
+          일반 사용자는 이력서 작성, 인쇄(출력), PDF 저장이 가능하며, 등록된 증명사진은 1주일 후 자동으로 영구 삭제됩니다.
         </p>
+        <div className="mt-2">
+          <button
+            onClick={handleOpenAdmin}
+            className="text-[11px] text-slate-400 hover:text-emerald-700 underline font-medium transition"
+          >
+            복지관 실무자 / 관리자 모드 접속
+          </button>
+        </div>
       </footer>
     </div>
   );
